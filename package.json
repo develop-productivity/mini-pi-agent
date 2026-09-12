@@ -1,0 +1,13 @@
+{
+    "name": "agent-demo-recap",
+    "type": "module",
+    "scripts": {
+        "typecheck": "tsc --noEmit"
+    },
+    "dependencies": {},
+    "devDependencies": {
+        "@types/node": "^26.1.1",
+        "tsx": "^4.20.5",
+        "typescript": "^7.0.2"
+    }
+}
