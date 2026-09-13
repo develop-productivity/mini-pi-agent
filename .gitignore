@@ -1,3 +1,5 @@
 node_modules/
 .sessions/
 *.jsonl
+.env
+log.txt
