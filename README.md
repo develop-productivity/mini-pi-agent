@@ -20,7 +20,7 @@ agent_mock.ts   同一套 agentLoop/executeTool，callLLM 换成离线 mock —�
 
 **这个对照本身就是这个仓库最想讲清楚的一件事**:agent 的核心循环(读消息 → 决定要不要调用工具 → 执行 → 把结果喂回去 → 重复,直到不再需要工具)跟"到底连的是哪个模型、走不走网络"完全无关——`agentLoop` 不用改一行,换掉 `callLLM` 就能在"真实调用"和"离线跑通"之间切换。
 
-两个文件共用的类型定义(`Message`/`Tool`/`CompletionRequest`/`CompletionResponse`)拆在 [`provider/types.ts`](provider/types.ts) 里——只有一个文件时,内联在文件顶部更简单;现在两个文件都要用同一套类型,拆出来共享才不用维护两份重复的定义。
+**每个文件都是完全自包含的**——类型定义、工具 schema、格式翻译、核心循环全部写在同一个文件里,不 import 项目里的任何其他本地文件。`provider/types.ts` 目前**没有被使用**,是为以后拆成多文件版本预留的,现在的两个 demo 都刻意不依赖它。
 
 ## 快速开始
 
@@ -53,9 +53,9 @@ Assistant: 现在是 ...
 ## 代码里有什么
 
 ```
-provider/types.ts   Message / Tool / CompletionRequest / CompletionResponse
-                    —— agent 内部统一用的形状，跟外部 API 长什么样完全无关
-                    两个文件共用同一份，不重复定义
+类型定义      Message / Tool / CompletionRequest / CompletionResponse
+              —— agent 内部统一用的形状，跟外部 API 长什么样完全无关
+              两个文件里各自都有一份（故意不共享，保持每个文件单独能跑）
 
 Tools         3 个工具的 schema：read_file / write_file / get_current_time
               每个都标了 required —— 模型自己会读这份 schema，决定哪些参数必须给

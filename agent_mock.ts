@@ -1,7 +1,33 @@
 import type { TSchema } from "typebox";
 import readline from "readline";
 import { writeFile, readFile } from "node:fs/promises"
-import type { Tool, toolCall, Message, CompletionRequest, CompletionResponse } from "./provider/types.ts"
+
+export interface Tool {
+    name: string;
+    description: string;
+    parameter: TSchema
+}
+export interface toolCall {
+    id: string;
+    name: string;
+    arguments: Record<string, unknown>
+}
+export type Message =
+    | { role: "system"; content: string }
+    | { role: "assistant"; content: string; toolCalls?: toolCall[] }
+    | { role: "user"; content: string }
+    | { role: "tool"; toolCallId: string; content: string; isError?: boolean }
+export interface CompletionRequest {
+    model: string;
+    messages: Message[];
+    tools?: Tool[];
+    signal?: AbortController['signal']
+}
+export interface CompletionResponse {
+    message: { role: "assistant"; content: string; toolCalls?: toolCall[] };
+    usage?: { inputTokens: number, outputTokens: number }
+    stopReason?: "end_turn" | "tool_use" | "max_tokens" | "stop_sequence" | "error";
+}
 
 const Tools: Tool[] = [
     {
