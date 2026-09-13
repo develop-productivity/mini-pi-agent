@@ -12,8 +12,8 @@
 ## 两个文件,一个道理
 
 ```
-agent_med.ts    接真实 DeepSeek API —— 需要 DEEPSEEK_API_KEY
-agent_mock.ts   同一套 agentLoop/executeTool，callLLM 换成离线 mock —— 不需要任何 key
+min_executable_demo/agent_med.ts    接真实 DeepSeek API —— 需要 DEEPSEEK_API_KEY
+min_executable_demo/agent_mock.ts   同一套 agentLoop/executeTool，callLLM 换成离线 mock —— 不需要任何 key
 ```
 
 两个文件的 `agentLoop`/`executeTool`/`Tools` 几乎一模一样,**唯一的区别是 `callLLM` 怎么拿到模型的回复**——一个是发 HTTP 请求给 DeepSeek,一个是纯函数、根据"历史里已经有几条 assistant 消息"直接算出该说什么。
@@ -38,7 +38,7 @@ npx tsx agent_mock.ts
 
 ```bash
 export DEEPSEEK_API_KEY="sk-你的key"
-npx tsx agent_med.ts
+npx tsx min_executable_demo/agent_med.ts
 ```
 
 或者建一个 `.env`(内容抄 `.env.example`),程序会自动读取,不用每次都 `export`。
@@ -65,7 +65,7 @@ executeTool   真正执行工具，失败时返回错误文本（不是抛异常
 agentLoop     核心循环：
                 调用 LLM → 有工具调用就执行、把结果塞回对话 → 没有就停下来
 
-callLLM       agent_med.ts 里这个函数还包含一层"格式翻译"：
+callLLM       min_executable_demo/agent_med.ts 里这个函数还包含一层"格式翻译"：
                 内部的 Message[] ←→ DeepSeek/OpenAI 兼容接口认识的 JSON
               agent_mock.ts 里没有这层，因为它压根不碰网络
 ```

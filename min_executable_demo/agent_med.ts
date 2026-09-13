@@ -1,6 +1,7 @@
 import type { TSchema } from "typebox";
 import readline from "readline";
 import { writeFile, readFile } from "node:fs/promises"
+try { process.loadEnvFile(); } catch {}
 
 export interface Tool {
     name: string;
