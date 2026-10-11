@@ -1,8 +1,12 @@
 {
-    "name": "agent-demo-recap",
+    "name": "mini-pi-agent",
     "type": "module",
     "scripts": {
-        "typecheck": "tsc --noEmit"
+        "typecheck": "tsc --noEmit",
+        "cli": "tsx src/host/cli.ts",
+        "tui": "tsx src/host/tui.ts",
+        "demo:mock": "tsx demo/agent_mock.ts",
+        "demo:loop": "tsx demo/min_agent_loop.ts"
     },
     "dependencies": {
         "typebox": "^1.3.30"

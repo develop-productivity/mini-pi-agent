@@ -1,26 +1,20 @@
 # mini-pi-agent
+agent 系统可以划分为agent_loop, agent_runtime, 以及sandbox.
 
-**一个 agent 的核心原理,压缩进一个 ~200 行的文件里能不能讲清楚?**
+- agent_loop（智能体执行循环）：即LLM 驱动的感知、推理、规划、执行、观察、评估等循环。决定agent 如何进行决策、迭代和自我纠正。
+- agent_runtime（智能体运行时）：为Loop 提供工具调用、记忆管理、多agent协作、可观测性基础设施，目前主流的框架包含：LangChain、AutoGen，CrewAI 等。
+- sandbox（执行沙箱）：在代码执行、工具调用、文件操作等不可信行为发生之前提供进程、容器、虚拟机等级别的安全保护、防止宿主环境被逃逸或者滥用。
 
-这个仓库只做一件事:不依赖任何 agent 框架/SDK,凭对 LLM tool-calling 机制的理解、
-加上对真实 API 文档的查阅,手写一个最小但完整可运行的 agent。
 
-> 常说的一句话:"如果不能用 70 行代码写出一个 agent,就不算真的懂 agent 原理。" 这个仓库就是在验证这句话。
+
 
 ---
 
-## 两个文件,一个道理
+## agent_loop
+提供了一个最小可运行的agent_loop: mini-pi-agent/min_executable_demo/min_agent_loop.ts
 
-```
-min_executable_demo/agent_med.ts    接真实 DeepSeek API —— 需要 DEEPSEEK_API_KEY
-min_executable_demo/agent_mock.ts   同一套 agentLoop/executeTool，callLLM 换成离线 mock —— 不需要任何 key
-```
+## agent_runtime
 
-两个文件的 `agentLoop`/`executeTool`/`Tools` 几乎一模一样,**唯一的区别是 `callLLM` 怎么拿到模型的回复**——一个是发 HTTP 请求给 DeepSeek,一个是纯函数、根据"历史里已经有几条 assistant 消息"直接算出该说什么。
-
-**这个对照本身就是这个仓库最想讲清楚的一件事**:agent 的核心循环(读消息 → 决定要不要调用工具 → 执行 → 把结果喂回去 → 重复,直到不再需要工具)跟"到底连的是哪个模型、走不走网络"完全无关——`agentLoop` 不用改一行,换掉 `callLLM` 就能在"真实调用"和"离线跑通"之间切换。
-
-**每个文件都是完全自包含的**——类型定义、工具 schema、格式翻译、核心循环全部写在同一个文件里,不 import 项目里的任何其他本地文件。`provider/types.ts` 目前**没有被使用**,是为以后拆成多文件版本预留的,现在的两个 demo 都刻意不依赖它。
 
 ## 快速开始
 
