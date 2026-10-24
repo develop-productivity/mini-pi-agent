@@ -3,3 +3,4 @@ node_modules/
 *.jsonl
 .env
 log.txt
+learn-note/

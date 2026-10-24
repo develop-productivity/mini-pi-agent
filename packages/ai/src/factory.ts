@@ -23,7 +23,7 @@ export function CreateApi(): Api {
             headers: {
                 "HTTP-Referer":
                     process.env.OPENROUTER_HTTP_REFERER || "http://localhost:3000",
-                "X-Title": process.env.OPENROUTER_APP_TITLE || "agent_demo",
+                "X-Title": process.env.OPENROUTER_APP_TITLE || "mini-pi-agent",
             },
         })
     } else {

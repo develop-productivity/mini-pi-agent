@@ -1,8 +1,8 @@
 /**
  * Mock provider — a deterministic, offline LLM.
  *
- * Why this exists: every checkpoint in learn_note/ currently needs a real API
- * key and real money to verify. That makes the tutorial hard to reproduce and
+ * Why this exists: every run of the agent otherwise needs a real API key and
+ * real money to verify. That makes the tutorial hard to reproduce and
  * impossible to test in CI. A scripted provider makes the whole loop — turns,
  * streaming, tool calls, tool results, compaction, hooks, permissions — runnable
  * with `PROVIDER=mock` and nothing else.
@@ -16,7 +16,6 @@
  *   concurrent sessions, and needs no cleanup.
  *
  * Usage:
- *   PROVIDER=mock npm run web                 # built-in demo script
  *   PROVIDER=mock MOCK_SCRIPT=./x.json ...    # your own script
  *   MOCK_DELAY_MS=40                          # slow the stream down to watch it
  *   createMockApi({ script: [...] })          # from a test, no env vars
@@ -130,8 +129,7 @@ function resolveStep(script: MockStep[], req: CompletionRequest): MockStep {
   const step = script[stepIndex(req.messages)];
   if (step) return step;
 
-  // Script exhausted. Echoing keeps the mock useful indefinitely for UI work —
-  // which is exactly what building the Day 18 frontend needed.
+  // Script exhausted. Echoing keeps the mock useful indefinitely for UI work.
   const echo = lastUserText(req.messages);
   return {
     text: echo

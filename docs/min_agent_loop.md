@@ -1,8 +1,8 @@
-# agent_med.ts —— 一个最小可运行的 Agent
+# demo/min_agent_loop.ts —— 一个最小可运行的 Agent
 
 **能不能不依赖任何 agent 框架/SDK，把 agent 的核心原理压缩进一个约 200 行的文件里，而且还真的能跑起来？**
 
-`agent_med.ts` 就是对这句话的验证：接真实的 DeepSeek API，手写一个最小、但完整可运行的对话式 agent。
+`demo/min_agent_loop.ts` 就是对这句话的验证：接真实的 DeepSeek API，手写一个最小、但完整可运行的对话式 agent。
 它凭的是对 LLM tool-calling 机制的理解，加上对真实 API 文档的查阅——没有 LangChain，没有 SDK，
 没有框架魔法。
 
@@ -10,7 +10,7 @@
 
 ## 它是什么
 
-`agent_med.ts` 是「最小可运行 agent」这一点的完整实现。所谓*完整可运行*，指的是：
+`demo/min_agent_loop.ts` 是「最小可运行 agent」这一点的完整实现。所谓*完整可运行*，指的是：
 
 - **真的联网**：请求 DeepSeek 的 OpenAI 兼容接口 `https://api.deepseek.com/chat/completions`；
 - **真的调用模型**：让模型自己决定要不要用工具、用哪个、传什么参数；
@@ -36,7 +36,7 @@ npm install
 ```bash
 # 方式一：直接导出环境变量
 export DEEPSEEK_API_KEY="sk-你的key"
-npx tsx min_executable_demo/agent_med.ts
+npm run demo:loop
 ```
 
 ```bash
