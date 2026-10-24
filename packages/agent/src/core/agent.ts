@@ -2,7 +2,7 @@
  * 
  */
 
-import type { Message } from "../providers/types.ts";
+import type { Message } from "@mini-pi/ai";
 import type { agentEventBus, AgentEventListener } from "./events.ts"
 
 type QueueMode = "all" | "one-at-a-time";

@@ -86,37 +86,35 @@
 
 ### 项目结构
 
+npm workspaces monorepo，依赖只能往下：`coding-agent → agent → ai`。
+
 ```
 mini-pi-agent/
-├── agent_cli.ts              # CLI 宿主（readline）
-├── agent_tui.ts              # TUI 宿主（raw mode terminal）
-├── tui.ts                    # 终端 UI 实现
-├── core/
-│   ├── agent.ts              # agent_loop: while 循环 + turn + abort + steering
-│   └── events.ts             # AgentEvent + EventBus
-├── provider/
-│   ├── types.ts              # Message / Tool / CompletionRequest / Response
-│   ├── factory.ts            # createApi() 按 env 选 provider
-│   └── openai.ts             # OpenAI 兼容 translator（DeepSeek/OpenRouter）
-├── tools/
-│   ├── registry.ts           # Tool 接口 + 注册表 + defineTool + 参数校验
-│   ├── executor.ts           # 统一执行入口（失败转文本）
-│   └── builtin.ts            # bash / read_file / write_file / edit_file
-├── session/
-│   └── storage.ts            # append-only JSONL + buildContext
-├── hooks/
-│   └── registry.ts           # 简化版：pre/post tool + session start
-├── sandbox/
-│   ├── path.ts               # 路径约束（assertInSandbox）
-│   ├── bash.ts               # 带超时/上限/abort 的 bash 执行
-│   └── permissions.ts        # allow/deny/ask 权限引擎
-├── plugins/
-│   ├── mcp.ts                # MCP 客户端 + Tool 适配（可选）
-│   └── skills.ts             # Markdown 能力包加载（可选）
-├── .mcp.json                 # MCP server 配置（可选）
-├── .permission.json          # 权限规则（可选）
+├── packages/
+│   ├── ai/src/                   # @mini-pi/ai —— 模型接入（runtime 的 provider 部分）
+│   │   ├── types.ts              # Message / Tool / CompletionRequest / Response
+│   │   ├── factory.ts            # createApi() 按 env 选 provider
+│   │   ├── openai.ts             # OpenAI 兼容 translator（DeepSeek/OpenRouter）
+│   │   └── mock.ts               # 离线确定性 mock
+│   ├── agent/src/                # @mini-pi/agent —— agent_loop
+│   │   ├── core/agent.ts         # while 循环 + turn + abort + steering
+│   │   ├── core/events.ts        # AgentEvent + EventBus
+│   │   ├── tools/registry.ts     # Tool 接口 + 注册表 + defineTool + 参数校验
+│   │   │                         #（内置工具暂时也在这里，写 sandbox 时挪到 coding-agent）
+│   │   └── tools/executor.ts     # 统一执行入口（失败转文本）
+│   └── coding-agent/src/         # @mini-pi/coding-agent —— 待建
+│       ├── host/cli.ts           # CLI 宿主（readline）
+│       ├── host/tui.ts           # TUI 宿主（raw mode terminal）
+│       ├── tools/builtin.ts      # bash / read_file / write_file / edit_file
+│       ├── session/storage.ts    # append-only JSONL + buildContext
+│       ├── hooks/registry.ts     # 简化版：pre/post tool + session start
+│       ├── sandbox/              # path.ts / bash.ts / permissions.ts
+│       └── plugins/              # mcp.ts / skills.ts（可选）
+├── demo/                         # 单文件 demo，不依赖任何包
+├── scripts/smoke.ts              # 冒烟测试
+├── .mcp.json / .permission.json  # 可选配置
 ├── .env.example
-├── package.json
+├── package.json                  # workspaces
 └── tsconfig.json
 ```
 

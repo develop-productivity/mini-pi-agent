@@ -11,28 +11,45 @@ agent 系统可以划分为agent_loop, agent_runtime, 以及sandbox.
 ---
 
 ## agent_loop
-提供了一个最小可运行的agent_loop: mini-pi-agent/min_executable_demo/min_agent_loop.ts
+提供了一个最小可运行的agent_loop: `demo/min_agent_loop.ts`
 
 ## agent_runtime
 
 
+## 目录结构
+
+npm workspaces 组织的 monorepo，依赖方向只能往下：`coding-agent → agent → ai`。
+
+```
+packages/
+├── ai/            @mini-pi/ai      模型接入：中间格式类型、OpenAI 兼容 translator、mock、按环境变量选 provider
+├── agent/         @mini-pi/agent   agent_loop：Agent、事件总线、Tool 接口与注册表、executor
+└── coding-agent/  （待建）          CLI/TUI 宿主、sandbox、session、hooks、plugins
+demo/              单文件 demo，不依赖任何包，复制出去就能跑
+scripts/smoke.ts   冒烟测试（CI 也跑这个）
+docs/              设计和进度
+```
+
+包之间用包名导入（`import { createMockApi } from "@mini-pi/ai"`），不要用 `../../ai/src/...` 这种相对路径。
+
 ## 快速开始
 
 ```bash
-npm install
+npm install        # 会把 packages/* 软链接到 node_modules/@mini-pi/
+npm run smoke      # 不需要 key，验证包能互相导入、mock 能走通
 ```
 
 **不想配 key,先看看循环本身对不对:**
 
 ```bash
-npx tsx agent_mock.ts
+npm run demo:mock
 ```
 
 **接真实 DeepSeek:**
 
 ```bash
 export DEEPSEEK_API_KEY="sk-你的key"
-npx tsx min_executable_demo/agent_med.ts
+npm run demo:loop
 ```
 
 或者建一个 `.env`(内容抄 `.env.example`),程序会自动读取,不用每次都 `export`。
@@ -59,9 +76,9 @@ executeTool   真正执行工具，失败时返回错误文本（不是抛异常
 agentLoop     核心循环：
                 调用 LLM → 有工具调用就执行、把结果塞回对话 → 没有就停下来
 
-callLLM       min_executable_demo/agent_med.ts 里这个函数还包含一层"格式翻译"：
+callLLM       demo/min_agent_loop.ts 里这个函数还包含一层"格式翻译"：
                 内部的 Message[] ←→ DeepSeek/OpenAI 兼容接口认识的 JSON
-              agent_mock.ts 里没有这层，因为它压根不碰网络
+              demo/agent_mock.ts 里没有这层，因为它压根不碰网络
 ```
 
 ## 实现这类 agent 时要注意的几点
