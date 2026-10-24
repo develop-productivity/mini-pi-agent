@@ -4,20 +4,20 @@
  * Why this exists: every run of the agent otherwise needs a real API key and
  * real money to verify. That makes the tutorial hard to reproduce and
  * impossible to test in CI. A scripted provider makes the whole loop — turns,
- * streaming, tool calls, tool results, compaction, hooks, permissions — runnable
- * with `PROVIDER=mock` and nothing else.
+ * tool calls, tool results — runnable with `PROVIDER=mock` and nothing else.
+ * （未实现：流式输出、hooks、权限。做好之后也用这个 mock 测。）
  *
  * The one design constraint worth understanding:
  *
- *   `callLLMStream` calls `createApi()` on EVERY turn (providers/factory.ts), so
- *   a mock holding an instance counter would reset to step 0 every single turn.
+ *   The agent loop may call `CreateApi()` (factory.ts) on every turn, so a
+ *   mock holding an instance counter would reset to step 0 every single turn.
  *   Instead the step is *derived from the request*: how many assistant messages
  *   are already in the history. That is stateless, correct across any number of
  *   concurrent sessions, and needs no cleanup.
  *
  * Usage:
  *   PROVIDER=mock MOCK_SCRIPT=./x.json ...    # your own script
- *   MOCK_DELAY_MS=40                          # slow the stream down to watch it
+ *   MOCK_DELAY_MS=40                          # delay each reply（流式输出未实现）
  *   createMockApi({ script: [...] })          # from a test, no env vars
  */
 import { readFileSync } from "node:fs";
@@ -76,7 +76,7 @@ function loadScriptFromEnv(): MockStep[] | undefined {
     }
     return parsed as MockStep[];
   } catch (err) {
-    // Same posture as loadRules / loadMcpConfig: warn and fall back, never crash.
+    // Warn and fall back to the default script, never crash.
     process.stderr.write(`[mock] cannot read ${path}: ${err}\n`);
     return undefined;
   }
@@ -119,7 +119,11 @@ function stepIndex(messages: Message[]): number {
   return messages.filter((m) => m.role === "assistant").length;
 }
 
-/** Compaction calls `complete()` with no tools; the agent loop always passes them. */
+/**
+ * A request without tools is treated as a compaction (summary) request; the agent
+ * loop always passes tools.（上下文压缩目前不做，见 docs/DESIGN.md「保留 vs 砍掉」；
+ * 这个分支没有调用方。）
+ */
 function looksLikeCompaction(req: CompletionRequest): boolean {
   return !req.tools || req.tools.length === 0;
 }
@@ -152,7 +156,7 @@ function stopReasonFor(step: MockStep, toolCalls?: ToolCall[]): CompletionRespon
   return step.stopReason ?? (toolCalls?.length ? "tool_use" : "end_turn");
 }
 
-/** Rough but stable token estimate, so metrics/budget work can be tested too. */
+/** Rough but stable token estimate for the `usage` field. */
 function estimateTokens(text: string): number {
   return Math.max(1, Math.ceil(Array.from(text).length / 4));
 }
@@ -202,6 +206,7 @@ export function createMockApi(options: MockOptions = {}): Api {
       return buildResponse(req);
     },
 
+    // 未实现：流式输出。types.ts 里的 stream() 接口定好后取消注释。
     // async *stream(req: CompletionRequest): AsyncIterable<StreamEvent> {
     //   const response = buildResponse(req);
     //   const { message } = response;

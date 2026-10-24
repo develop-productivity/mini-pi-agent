@@ -36,7 +36,7 @@ docs/              设计和进度
 
 ```bash
 npm install        # 会把 packages/* 软链接到 node_modules/@mini-pi/
-npm run smoke      # 不需要 key，验证包能互相导入、mock 能走通
+npm run smoke      # 不需要 key：两个包按包名导入，mock 要工具 → 执行 → 喂回结果 → 结束
 ```
 
 **不想配 key,先看看循环本身对不对:**

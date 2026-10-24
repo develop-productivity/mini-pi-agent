@@ -109,7 +109,7 @@ mini-pi-agent/
 
 保留的核心：
 - CLI：readline + AgentUi 接口 + 权限 prompter
-- TUI：raw mode + ANSI 渲染 + steering/follow-up 模式 + spinner
+- TUI：raw mode + ANSI 渲染 + steering/follow-up 模式 + spinner + 鼠标滚轮翻看之前的内容 + 简单的权限弹窗
 
 ### "一切皆插件"在 mini-pi 中的体现
 
@@ -178,3 +178,8 @@ agent_loop 不知道、也不需要知道一个 tool 是内置的还是来自 MC
 | Skills 插件 | compaction | 短会话不需要压缩 |
 | append-only JSONL | | |
 | 路径约束 + bash 约束 | | |
+| OpenAI 兼容格式 + mock | Anthropic 原生格式 | DeepSeek、OpenRouter 都走 OpenAI 兼容接口，一种 translator 就够 |
+| TUI 鼠标滚轮翻看之前的内容 | | 长对话必须能往回翻 |
+| 简单的权限弹窗（询问一次：允许 / 拒绝） | 复杂的权限弹窗交互 | 权限必须问用户，但不需要多级菜单 |
+| session：storage + buildContext 一个文件 | session 拆多个文件 | 每个模块尽量一个文件 |
+| MCP：client + adapter + loader 一个文件 | MCP 拆多个文件 | 同上 |

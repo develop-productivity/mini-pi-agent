@@ -33,5 +33,6 @@ export interface CompletionResponse {
 export interface Api {
     name: string;
     complete(req: CompletionRequest) : Promise<CompletionResponse>;
+    // 未实现：流式输出
     // stream(req: CompletionRequest) : AsyncIterable<StreamEvent>;
 }

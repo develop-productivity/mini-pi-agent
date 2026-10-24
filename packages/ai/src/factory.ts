@@ -6,7 +6,7 @@ export function CreateApi(): Api {
     let api: Api;
     const provider = process.env.PROVIDER || "openai";
     if (provider === "mock") {
-        // Offline, deterministic, no key. See providers/mock.ts.
+        // Offline, deterministic, no key. See mock.ts.
         api = createMockApi()
     } else if (provider === "openai"){
         api = createOpenAiApi({

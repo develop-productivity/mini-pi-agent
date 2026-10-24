@@ -42,7 +42,7 @@ npm workspaces monorepo：
 
 ```bash
 npm install          # 新增包或依赖之后
-npm run smoke        # 不需要 key：包能互相导入，mock 先要工具再结束
+npm run smoke        # 不需要 key：两个包按包名导入，mock 要工具 → 执行 → 喂回结果 → 结束
 npm run typecheck    # 现在有 wip 类型错误，见 docs/PROGRESS.md
 ```
 
