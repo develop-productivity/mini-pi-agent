@@ -18,8 +18,8 @@
                  │  Tool 接口（一切皆插件）
 ┌────────────────▼─────────────────────────────────────────────────┐
 │  agent_runtime（智能体运行时）                                      │
-│  providers/  tools/  session/  hooks/  plugins/(mcp + skills)     │
-│  工具注册 · 多模型适配 · 会话持久化 · 上下文压缩 · 生命周期钩子      │
+│  packages/ai（模型接入）· tools/ session/ hooks/ plugins/          │
+│  工具注册 · 多模型适配 · 流式输出 · 会话持久化 · 上下文压缩 · 钩子  │
 └────────────────┬─────────────────────────────────────────────────┘
                  │  执行前拦截
 ┌────────────────▼─────────────────────────────────────────────────┐
@@ -92,7 +92,8 @@ mini-pi-agent/
 保留的核心：
 - Tool 接口：`name + description + parameters(TSchema) + execute(args, ctx) → string`
 - 注册表：`registerTool()` + `toolsByName` + 参数校验（typebox Compile/Check）
-- Provider：`createApi()` → `{ complete(req): Promise<CompletionResponse> }`
+- Provider：`createApi()` → `{ complete(req): Promise<CompletionResponse> }`；流式 `stream(req)` 未实现
+- 上下文压缩（未实现）：超限时调用不带 tools 的 `complete()` 生成摘要，append 一条 marker，历史不删
 - Session：append-only JSONL，`appendMessage()` + `getEntries()` + `buildContext()`
 - Hooks：`register(kind, matcher, hook)` + `run(kind, ctx, toolName?)`
 - MCP：stdio JSON-RPC，外部 server 的 tool 注册为本地 Tool
@@ -174,8 +175,10 @@ agent_loop 不知道、也不需要知道一个 tool 是内置的还是来自 MC
 | abort | session manager | 不做多会话 |
 | Tool 注册表 + 参数校验 | subagent | 第一版不做嵌套 agent |
 | 权限引擎 | retry + 退避 | 放到 provider 内部简化 |
-| MCP 插件 | SSE 流式 | 先用非流式，需要时再加 |
-| Skills 插件 | compaction | 短会话不需要压缩 |
+| MCP 插件 | | |
+| Skills 插件 | | |
+| 流式输出（SSE，未实现） | | 先用非流式 complete() 跑通循环，再加 stream() |
+| 上下文压缩（未实现） | | 超限时摘要，只 append 一条 marker，历史不删 |
 | append-only JSONL | | |
 | 路径约束 + bash 约束 | | |
 | OpenAI 兼容格式 + mock | Anthropic 原生格式 | DeepSeek、OpenRouter 都走 OpenAI 兼容接口，一种 translator 就够 |

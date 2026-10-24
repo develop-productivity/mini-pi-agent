@@ -5,7 +5,7 @@
  * real money to verify. That makes the tutorial hard to reproduce and
  * impossible to test in CI. A scripted provider makes the whole loop — turns,
  * tool calls, tool results — runnable with `PROVIDER=mock` and nothing else.
- * （未实现：流式输出、hooks、权限。做好之后也用这个 mock 测。）
+ * （未实现：流式输出、上下文压缩、hooks、权限。做好之后也用这个 mock 测。）
  *
  * The one design constraint worth understanding:
  *
@@ -32,7 +32,7 @@ import type {
 
 /** One LLM reply. Index into the script = number of assistant turns so far. */
 export interface MockStep {
-  /** Text streamed as deltas. */
+  /** Reply text（流式输出未实现，现在整段返回）. */
   text?: string;
   /** Tool calls to request. Presence flips stopReason to "tool_use". */
   toolCalls?: Array<{ name: string; arguments?: Record<string, unknown> }>;
@@ -43,9 +43,9 @@ export interface MockStep {
 export interface MockOptions {
   name?: string;
   script?: MockStep[];
-  /** Milliseconds between streamed chunks. 0 = as fast as possible. */
+  /** Milliseconds before each reply（流式输出实现后也用于每个 chunk 之间）. 0 = no delay. */
   delayMs?: number;
-  /** Codepoints per text chunk. Small values exercise the stream harder. */
+  /** Codepoints per text chunk.（未实现：只有流式输出会用到，现在设了不起作用。） */
   chunkSize?: number;
 }
 
@@ -120,9 +120,9 @@ function stepIndex(messages: Message[]): number {
 }
 
 /**
- * A request without tools is treated as a compaction (summary) request; the agent
- * loop always passes tools.（上下文压缩目前不做，见 docs/DESIGN.md「保留 vs 砍掉」；
- * 这个分支没有调用方。）
+ * 不传 tools（或传空数组）的请求，一律当成上下文压缩请求：返回一段固定摘要并 end_turn，
+ * 不走脚本。所以测试工具调用时一定要传 tools，否则 mock 不会要求调用工具。
+ *（上下文压缩本身未实现，见 docs/DESIGN.md。）
  */
 function looksLikeCompaction(req: CompletionRequest): boolean {
   return !req.tools || req.tools.length === 0;
@@ -165,6 +165,7 @@ export function createMockApi(options: MockOptions = {}): Api {
   const name = options.name ?? "mock";
   const script = options.script ?? loadScriptFromEnv() ?? DEFAULT_SCRIPT;
   const delayMs = options.delayMs ?? envNumber("MOCK_DELAY_MS", 0);
+  // 未实现：chunkSize 只给流式输出用，现在没有读它的代码
   const chunkSize = Math.max(1, options.chunkSize ?? envNumber("MOCK_CHUNK_SIZE", 5));
 
   function buildResponse(req: CompletionRequest): CompletionResponse {

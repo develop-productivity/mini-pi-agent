@@ -17,7 +17,7 @@
 
 ### 待完成（按顺序）
 
-1. `types.ts` — `ToolCalls` -> `toolCalls`，`ToolCallId` -> `toolCallId`（4 处）
+1. `types.ts` — `ToolCalls` -> `toolCalls`，`ToolCallId` -> `toolCallId`（4 处）；同时改 `scripts/smoke.ts` 的 2 处（第 20 行 `first.message.ToolCalls`、第 27 行 `ToolCallId`）
 2. `openai.ts` — `parameter` -> `parameters`（1 处），修复后 TS 错误清零
 3. `events.ts` — `agentEventBus` interface 改成 `AgentEventBus` class，实现 subscribe + emit
 4. `executor.ts` — 写 executeTool：查注册表 -> 校验参数 -> 执行 -> 失败转文本
