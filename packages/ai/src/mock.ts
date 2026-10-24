@@ -1,24 +1,23 @@
 /**
  * Mock provider — a deterministic, offline LLM.
  *
- * Why this exists: every checkpoint in learn_note/ currently needs a real API
- * key and real money to verify. That makes the tutorial hard to reproduce and
+ * Why this exists: every run of the agent otherwise needs a real API key and
+ * real money to verify. That makes the tutorial hard to reproduce and
  * impossible to test in CI. A scripted provider makes the whole loop — turns,
- * streaming, tool calls, tool results, compaction, hooks, permissions — runnable
- * with `PROVIDER=mock` and nothing else.
+ * tool calls, tool results — runnable with `PROVIDER=mock` and nothing else.
+ * （未实现：流式输出、上下文压缩、hooks、权限。做好之后也用这个 mock 测。）
  *
  * The one design constraint worth understanding:
  *
- *   `callLLMStream` calls `createApi()` on EVERY turn (providers/factory.ts), so
- *   a mock holding an instance counter would reset to step 0 every single turn.
+ *   The agent loop may call `CreateApi()` (factory.ts) on every turn, so a
+ *   mock holding an instance counter would reset to step 0 every single turn.
  *   Instead the step is *derived from the request*: how many assistant messages
  *   are already in the history. That is stateless, correct across any number of
  *   concurrent sessions, and needs no cleanup.
  *
  * Usage:
- *   PROVIDER=mock npm run web                 # built-in demo script
  *   PROVIDER=mock MOCK_SCRIPT=./x.json ...    # your own script
- *   MOCK_DELAY_MS=40                          # slow the stream down to watch it
+ *   MOCK_DELAY_MS=40                          # delay each reply（流式输出未实现）
  *   createMockApi({ script: [...] })          # from a test, no env vars
  */
 import { readFileSync } from "node:fs";
@@ -33,7 +32,7 @@ import type {
 
 /** One LLM reply. Index into the script = number of assistant turns so far. */
 export interface MockStep {
-  /** Text streamed as deltas. */
+  /** Reply text（流式输出未实现，现在整段返回）. */
   text?: string;
   /** Tool calls to request. Presence flips stopReason to "tool_use". */
   toolCalls?: Array<{ name: string; arguments?: Record<string, unknown> }>;
@@ -44,9 +43,9 @@ export interface MockStep {
 export interface MockOptions {
   name?: string;
   script?: MockStep[];
-  /** Milliseconds between streamed chunks. 0 = as fast as possible. */
+  /** Milliseconds before each reply（流式输出实现后也用于每个 chunk 之间）. 0 = no delay. */
   delayMs?: number;
-  /** Codepoints per text chunk. Small values exercise the stream harder. */
+  /** Codepoints per text chunk.（未实现：只有流式输出会用到，现在设了不起作用。） */
   chunkSize?: number;
 }
 
@@ -77,7 +76,7 @@ function loadScriptFromEnv(): MockStep[] | undefined {
     }
     return parsed as MockStep[];
   } catch (err) {
-    // Same posture as loadRules / loadMcpConfig: warn and fall back, never crash.
+    // Warn and fall back to the default script, never crash.
     process.stderr.write(`[mock] cannot read ${path}: ${err}\n`);
     return undefined;
   }
@@ -120,7 +119,11 @@ function stepIndex(messages: Message[]): number {
   return messages.filter((m) => m.role === "assistant").length;
 }
 
-/** Compaction calls `complete()` with no tools; the agent loop always passes them. */
+/**
+ * 不传 tools（或传空数组）的请求，一律当成上下文压缩请求：返回一段固定摘要并 end_turn，
+ * 不走脚本。所以测试工具调用时一定要传 tools，否则 mock 不会要求调用工具。
+ *（上下文压缩本身未实现，见 docs/DESIGN.md。）
+ */
 function looksLikeCompaction(req: CompletionRequest): boolean {
   return !req.tools || req.tools.length === 0;
 }
@@ -130,8 +133,7 @@ function resolveStep(script: MockStep[], req: CompletionRequest): MockStep {
   const step = script[stepIndex(req.messages)];
   if (step) return step;
 
-  // Script exhausted. Echoing keeps the mock useful indefinitely for UI work —
-  // which is exactly what building the Day 18 frontend needed.
+  // Script exhausted. Echoing keeps the mock useful indefinitely for UI work.
   const echo = lastUserText(req.messages);
   return {
     text: echo
@@ -154,7 +156,7 @@ function stopReasonFor(step: MockStep, toolCalls?: ToolCall[]): CompletionRespon
   return step.stopReason ?? (toolCalls?.length ? "tool_use" : "end_turn");
 }
 
-/** Rough but stable token estimate, so metrics/budget work can be tested too. */
+/** Rough but stable token estimate for the `usage` field. */
 function estimateTokens(text: string): number {
   return Math.max(1, Math.ceil(Array.from(text).length / 4));
 }
@@ -163,6 +165,7 @@ export function createMockApi(options: MockOptions = {}): Api {
   const name = options.name ?? "mock";
   const script = options.script ?? loadScriptFromEnv() ?? DEFAULT_SCRIPT;
   const delayMs = options.delayMs ?? envNumber("MOCK_DELAY_MS", 0);
+  // 未实现：chunkSize 只给流式输出用，现在没有读它的代码
   const chunkSize = Math.max(1, options.chunkSize ?? envNumber("MOCK_CHUNK_SIZE", 5));
 
   function buildResponse(req: CompletionRequest): CompletionResponse {
@@ -204,6 +207,7 @@ export function createMockApi(options: MockOptions = {}): Api {
       return buildResponse(req);
     },
 
+    // 未实现：流式输出。types.ts 里的 stream() 接口定好后取消注释。
     // async *stream(req: CompletionRequest): AsyncIterable<StreamEvent> {
     //   const response = buildResponse(req);
     //   const { message } = response;

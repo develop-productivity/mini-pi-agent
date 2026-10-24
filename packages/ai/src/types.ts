@@ -12,7 +12,6 @@ export interface ToolCall {
 }
 
 // agent 内部统一用的形状，跟外部 API（DeepSeek/OpenAI/mock）长什么样完全无关。
-// agent_med.ts 和 agent_mock.ts 共用这一份，避免两处各自维护一份重复的定义。
 
 export type Message =
     | { role: "system"; content: string }
@@ -34,5 +33,6 @@ export interface CompletionResponse {
 export interface Api {
     name: string;
     complete(req: CompletionRequest) : Promise<CompletionResponse>;
+    // 未实现：流式输出
     // stream(req: CompletionRequest) : AsyncIterable<StreamEvent>;
 }

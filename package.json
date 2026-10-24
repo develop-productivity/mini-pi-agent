@@ -1,10 +1,13 @@
 {
     "name": "mini-pi-agent",
+    "private": true,
     "type": "module",
+    "workspaces": [
+        "packages/*"
+    ],
     "scripts": {
         "typecheck": "tsc --noEmit",
-        "cli": "tsx src/host/cli.ts",
-        "tui": "tsx src/host/tui.ts",
+        "smoke": "tsx scripts/smoke.ts",
         "demo:mock": "tsx demo/agent_mock.ts",
         "demo:loop": "tsx demo/min_agent_loop.ts"
     },

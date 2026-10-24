@@ -6,7 +6,7 @@ export function CreateApi(): Api {
     let api: Api;
     const provider = process.env.PROVIDER || "openai";
     if (provider === "mock") {
-        // Offline, deterministic, no key. See providers/mock.ts.
+        // Offline, deterministic, no key. See mock.ts.
         api = createMockApi()
     } else if (provider === "openai"){
         api = createOpenAiApi({
@@ -23,7 +23,7 @@ export function CreateApi(): Api {
             headers: {
                 "HTTP-Referer":
                     process.env.OPENROUTER_HTTP_REFERER || "http://localhost:3000",
-                "X-Title": process.env.OPENROUTER_APP_TITLE || "agent_demo",
+                "X-Title": process.env.OPENROUTER_APP_TITLE || "mini-pi-agent",
             },
         })
     } else {

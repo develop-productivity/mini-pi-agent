@@ -1,7 +1,7 @@
 /**
  * agent event
  */
-import type { Message, CompletionResponse } from "../providers/types.ts";
+import type { Message, CompletionResponse } from "@mini-pi/ai";
 
 export type AgentEvent = 
     | { type: "agent_start"; runId: string }
