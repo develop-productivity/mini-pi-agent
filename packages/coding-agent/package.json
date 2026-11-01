@@ -6,7 +6,8 @@
         ".": "./src/index.ts"
     },
     "scripts": {
-        "smoke": "tsx test/tools-smoke.ts"
+        "smoke": "tsx test/tools-smoke.ts",
+        "smoke:mcp": "tsx test/mcp-smoke.ts"
     },
     "dependencies": {
         "@mini-pi/ai": "*",

@@ -60,19 +60,20 @@ mini-pi-agent/
 │   ├── agent/src/                # @mini-pi/agent —— agent_loop
 │   │   ├── core/agent.ts         # while 循环 + turn + abort + steering
 │   │   ├── core/events.ts        # AgentEvent + EventBus
-│   │   ├── tools/registry.ts     # Tool 接口 + 注册表 + defineTool + 参数校验
-│   │   │                         #（内置工具暂时也在这里，写 sandbox 时挪到 coding-agent）
-│   │   └── tools/executor.ts     # 统一执行入口（失败转文本）
-│   └── coding-agent/src/         # @mini-pi/coding-agent —— 待建
-│       ├── host/cli.ts           # CLI 宿主（readline）
-│       ├── host/tui.ts           # TUI 宿主（raw mode terminal）
+│   │   └── tools/
+│   │       ├── types.ts          # AgentTool + ToolContext + defineTool
+│   │       ├── registry.ts       # 实例级 ToolRegistry
+│   │       └── executor.ts       # 参数校验 + 统一执行入口
+│   └── coding-agent/src/         # @mini-pi/coding-agent
+│       ├── host/                 # CLI/TUI 宿主（待实现）
 │       ├── tools/builtin.ts      # bash / read_file / write_file / edit_file
-│       ├── session/storage.ts    # append-only JSONL + buildContext
-│       ├── hooks/registry.ts     # 简化版：pre/post tool + session start
+│       ├── session/              # append-only JSONL + buildContext
+│       ├── hooks/                # 简化版 hooks（待实现）
 │       ├── sandbox/              # path.ts / bash.ts / permissions.ts
-│       └── plugins/              # mcp.ts / skills.ts（可选）
+│       └── mcp/                  # client / loader / adapter
 ├── demo/                         # 单文件 demo，不依赖任何包
-├── scripts/smoke.ts              # 冒烟测试
+├── packages/*/test/              # 包内 smoke
+├── scripts/smoke.ts              # 跨包冒烟测试
 ├── .mcp.json / .permission.json  # 可选配置
 ├── .env.example
 ├── package.json                  # workspaces

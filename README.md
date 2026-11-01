@@ -24,9 +24,10 @@ npm workspaces 组织的 monorepo，依赖方向只能往下：`coding-agent →
 packages/
 ├── ai/            @mini-pi/ai      模型接入：中间格式类型、OpenAI 兼容 translator、mock、按环境变量选 provider
 ├── agent/         @mini-pi/agent   agent_loop：Agent、事件总线、Tool 接口与注册表、executor
-└── coding-agent/  （待建）          CLI/TUI 宿主、sandbox、session、hooks、plugins
+└── coding-agent/  @mini-pi/coding-agent  CLI/TUI 宿主、内置工具、sandbox、session、hooks、plugins
 demo/              单文件 demo，不依赖任何包，复制出去就能跑
-scripts/smoke.ts   冒烟测试（CI 也跑这个）
+packages/*/test/   每个包的局部 smoke
+scripts/smoke.ts   跨包冒烟测试（CI 也跑这个）
 docs/              设计和进度
 ```
 
@@ -36,7 +37,7 @@ docs/              设计和进度
 
 ```bash
 npm install        # 会把 packages/* 软链接到 node_modules/@mini-pi/
-npm run smoke      # 不需要 key：两个包按包名导入，mock 要工具 → 执行 → 喂回结果 → 结束
+npm run smoke      # 不需要 key：包内 smoke + ai → agent → coding-agent 跨包 smoke
 ```
 
 **不想配 key,先看看循环本身对不对:**
