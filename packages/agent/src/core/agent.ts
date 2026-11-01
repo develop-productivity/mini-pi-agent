@@ -1,68 +1,80 @@
-/**
- * 
- */
-
 import type { Message } from "@mini-pi/ai";
-import type { agentEventBus, AgentEventListener } from "./events.ts"
+import {
+    AgentEventBus,
+    type AgentEventListener,
+    type AgentListenerErrorHandler,
+} from "./events.ts";
+import { createToolRegistry, type ToolRegistry } from "../tools/registry.ts";
+import type { AgentTool } from "../tools/types.ts";
 
 type QueueMode = "all" | "one-at-a-time";
-class PendingMessageQueue {
-    private mode: QueueMode;
-    public messages: Message[] = [];
 
-    constructor(mode: QueueMode) {
-        this.mode = mode
-    }
-    drain() : Message[] {
+class PendingMessageQueue {
+    private readonly messages: Message[] = [];
+
+    constructor(private readonly mode: QueueMode) {}
+
+    drain(): Message[] {
         if (this.mode === "all") {
-            const drained = this.messages.slice()
-            this.messages = []
-            return drained
+            const drained = this.messages.splice(0);
+            return drained;
         }
-        // one-at-a-time
-        const first = this.messages[0]
-        if (!first) return []
-        this.messages = this.messages.slice(1)
-        return [first]
+
+        const first = this.messages.shift();
+        return first ? [first] : [];
     }
+
     clear(): void {
-        this.messages = []
+        this.messages.splice(0);
     }
-    enqueue(msg: Message): void {
-        this.messages.push(msg)
+
+    enqueue(message: Message): void {
+        this.messages.push(message);
     }
+
     hasItems(): boolean {
         return this.messages.length > 0;
     }
 }
 
-export interface AgentUI {
-    write(text: string): void;
-    writeLine(text: string): void;
-    setStatus(text: string): void;
+export interface AgentOptions {
+    tools?: readonly AgentTool[];
+    toolRegistry?: ToolRegistry;
+    onListenerError?: AgentListenerErrorHandler;
 }
 
-
 export class Agent {
-    // ═══════ Pi 对应的两个队列 ═══════
-    private steeringQueue = new PendingMessageQueue("one-at-a-time");
-    private followUpQueue = new PendingMessageQueue("all");
-    private ui: AgentUI;
-    private eventBus: agentEventBus; 
+    private readonly steeringQueue = new PendingMessageQueue("one-at-a-time");
+    private readonly followUpQueue = new PendingMessageQueue("all");
+    private readonly eventBus: AgentEventBus;
+    private readonly toolRegistry: ToolRegistry;
 
-    steer(text : string ) : void {
-
+    constructor(options: AgentOptions = {}) {
+        this.eventBus = new AgentEventBus(options.onListenerError);
+        this.toolRegistry = options.toolRegistry ?? createToolRegistry(options.tools ?? []);
     }
-    followUp(text : string) : void {
 
+    steer(text: string): void {
+        this.steeringQueue.enqueue({ role: "user", content: text });
     }
-    subscribe(listener: AgentEventListener) : () => void {
-        return this.eventBus[listener]
-    }
-    abort() : void {
 
+    followUp(text: string): void {
+        this.followUpQueue.enqueue({ role: "user", content: text });
     }
-    async prompt(text: string) : Promise<void> {
 
+    subscribe(listener: AgentEventListener): () => void {
+        return this.eventBus.subscribe(listener);
+    }
+
+    abort(): void {
+        // The active run does not exist until the loop is implemented.
+    }
+
+    listTools(): AgentTool[] {
+        return this.toolRegistry.list();
+    }
+
+    async prompt(_text: string): Promise<void> {
+        throw new Error("Agent loop is not implemented yet");
     }
 }

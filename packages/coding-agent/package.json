@@ -5,8 +5,13 @@
     "exports": {
         ".": "./src/index.ts"
     },
+    "scripts": {
+        "smoke": "tsx test/tools-smoke.ts",
+        "smoke:mcp": "tsx test/mcp-smoke.ts"
+    },
     "dependencies": {
         "@mini-pi/ai": "*",
+        "@mini-pi/agent": "*",
         "typebox": "^1.3.30"
     }
 }

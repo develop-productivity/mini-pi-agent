@@ -1,6 +1,7 @@
 import type { TSchema } from "typebox";
 
-export interface Tool {
+/** The model-facing description of a tool. It contains no executable code. */
+export interface ToolSpec {
     name: string;
     description: string;
     parameters: TSchema;
@@ -15,17 +16,17 @@ export interface ToolCall {
 
 export type Message =
     | { role: "system"; content: string }
-    | { role: "assistant"; content: string; ToolCalls?: ToolCall[] }
+    | { role: "assistant"; content: string; toolCalls?: ToolCall[] }
     | { role: "user"; content: string }
-    | { role: "tool"; ToolCallId: string; content: string; isError?: boolean }
+    | { role: "tool"; toolCallId: string; content: string; isError?: boolean }
 export interface CompletionRequest {
     model: string;
     messages: Message[];
-    tools?: Tool[];
-    signal?: AbortController['signal']
+    tools?: ToolSpec[];
+    signal?: AbortSignal;
 }
 export interface CompletionResponse {
-    message: { role: "assistant"; content: string; ToolCalls?: ToolCall[] };
+    message: { role: "assistant"; content: string; toolCalls?: ToolCall[] };
     usage?: { inputTokens: number, outputTokens: number }
     stopReason?: "end_turn" | "tool_use" | "max_tokens" | "stop_sequence" | "error";
 }

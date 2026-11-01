@@ -1,39 +1,43 @@
 # mini-pi-agent 开发进度
 
-## 当前状态：三层骨架已搭好，最小循环尚未跑通
+## 当前状态：工具边界已闭环，Agent 双层循环尚未实现
+
+`npm run typecheck` 已清零，`npm run smoke` 通过包内测试和跨包测试。Agent 目前可以接收工具并暴露事件订阅，但 `prompt()` 还没有进入模型调用与工具执行循环。
 
 ### 已完成
 
-| 文件 | 层 | 状态 | 说明 |
-|---|---|---|---|
-| `packages/ai/src/types.ts` | runtime | 有类型定义 | Message/Tool/ToolCall/CompletionRequest/Response/Api 接口。`ToolCalls`/`ToolCallId` 用了 PascalCase，待统一为 camelCase |
-| `packages/ai/src/openai.ts` | runtime | 有 translator | OpenAI 兼容格式双向翻译 + createOpenAiApi。引用 `parameter` 应为 `parameters` |
-| `packages/ai/src/mock.ts` | runtime | 完成 | 离线确定性 mock，无需 key，支持 DEFAULT_SCRIPT + env 配置 |
-| `packages/ai/src/factory.ts` | runtime | 完成 | CreateApi() 按 PROVIDER 环境变量选 mock/openai/openrouter/deepseek |
-| `packages/agent/src/core/events.ts` | loop | 有 AgentEvent 类型 | `agentEventBus` 是空 interface，需改成 class（subscribe + emit） |
-| `packages/agent/src/core/agent.ts` | loop | 有骨架 | PendingMessageQueue 完成；Agent 类骨架有了，但方法体空、eventBus 未初始化、subscribe 写法有误 |
-| `packages/agent/src/tools/registry.ts` | runtime | 有 Tool 接口 + 注册表 + 校验 | defineTool/registerTool/getTool/validateArgs 都有；内置工具引用了未实现的 assertInSandbox/withLineNumbers/runBash；ToolContext 缺 onProgress |
-| `packages/agent/src/tools/executor.ts` | runtime | 空文件 | 需要写 executeTool 统一执行入口 |
+| 模块 | 状态 | 说明 |
+|---|---|---|
+| monorepo 和依赖方向 | 完成 | `coding-agent → agent → ai`，跨包只用包名 |
+| `@mini-pi/ai` 类型和 provider | 基本完成 | 统一 `toolCalls/toolCallId`；mock 在 `src`；OpenAI translator 支持 stopReason、usage 和 abort |
+| `@mini-pi/agent` 工具抽象 | 完成 | `ToolSpec`、`AgentTool`、`ToolContext`、`defineTool` |
+| `@mini-pi/agent` registry/executor | 完成 | 实例级 `ToolRegistry`；执行前校验参数，失败转文本 |
+| `@mini-pi/agent` 事件总线 | 基础完成 | 支持消息和工具生命周期事件、取消订阅、监听器错误隔离 |
+| `@mini-pi/coding-agent` 内置工具 | 完成 | read/write/edit/bash/current_time，由工厂按 cwd 创建 |
+| `@mini-pi/coding-agent` sandbox | 基础完成 | 路径约束，以及 bash 超时、输出上限和进程树终止 |
+| `@mini-pi/coding-agent` session/MCP | 代码已迁移 | 已纳入 typecheck，尚未接入 Agent 和 CLI |
+| 包内与跨包 smoke | 完成 | ai、agent、coding-agent 各自 smoke，根级验证三包协作 |
 
-### 待完成（按顺序）
+### 下一步
 
-1. `types.ts` — `ToolCalls` -> `toolCalls`，`ToolCallId` -> `toolCallId`（4 处）；同时改 `scripts/smoke.ts` 的 2 处（第 20 行 `first.message.ToolCalls`、第 27 行 `ToolCallId`）
-2. `openai.ts` — `parameter` -> `parameters`（1 处），修复后 TS 错误清零
-3. `events.ts` — `agentEventBus` interface 改成 `AgentEventBus` class，实现 subscribe + emit
-4. `executor.ts` — 写 executeTool：查注册表 -> 校验参数 -> 执行 -> 失败转文本
-5. `registry.ts` — ToolContext 加 onProgress；内置工具暂时注释掉 assertInSandbox/withLineNumbers/runBash 依赖（或写 sandbox/）
-6. `agent.ts` — 填入构造函数、prompt、steer、followUp、abort、subscribe、runAgent 两层 while 循环
-7. CLI 宿主 — 新建 `packages/coding-agent`（package.json 参照 agent 包），写 `src/host/cli.ts`：readline + AgentUI + new Agent + 循环 prompt；根 package.json 加回 `cli` 脚本
-8. `PROVIDER=mock` 跑通验证；之后删掉 `.github/workflows/ci.yml` 里 typecheck 的 `continue-on-error`
+1. 实现 `Agent.prompt()`：模型调用 → tool calls → executor → tool result 回填 → 再次调用模型。
+2. 实现 turn/steering/follow-up/abort 的状态管理，并广播完整事件序列。
+3. 新建 CLI 宿主，让 Agent 只通过事件通知 Host，不反向依赖 UI。
+4. 将 session 接入 Agent，验证 JSONL 恢复和 context 构建。
+5. 实现流式输出和上下文压缩。
+6. 实现 hooks、权限弹窗和 MCP/Skill 工具注册。
+7. 完整 Agent loop 跑通后，删除 CI typecheck 的 `continue-on-error`。
 
-### 当前 TS 错误（13 个）
+### 验证基线
 
-```
-agent.ts:3 个   — ui/eventBus 未初始化，subscribe 写法有误
-openai.ts:4 个  — toolCallId/toolCalls 大小写不匹配 + parameter 应为 parameters
-registry.ts:6 个 — assertInSandbox/withLineNumbers/runBash 未定义 + onProgress 缺失
+```text
+npm run typecheck  → 0 errors
+npm run smoke      → agent smoke ok
+                     ai smoke ok
+                     coding-agent smoke ok
+                     cross-package smoke ok
 ```
 
 ### 目标
 
-跑通 `PROVIDER=mock npx tsx packages/coding-agent/src/host/cli.ts`，在命令行中一问一答，mock 会先调 `get_current_time` 工具再给出最终回复，验证两层循环（inner: tool_call, outer: turn）。
+`PROVIDER=mock` 时，CLI 能完成一次“请求工具 → 执行 → 结果回填 → 最终回复”，并能从事件流观察完整的 agent/turn/message/tool 生命周期。

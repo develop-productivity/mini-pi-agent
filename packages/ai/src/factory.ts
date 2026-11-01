@@ -1,39 +1,45 @@
 import type { Api } from "./types.ts";
-import { createOpenAiApi } from "./openai.ts";
 import { createMockApi } from "./mock.ts";
+import { createOpenAiApi } from "./openai.ts";
 
-export function CreateApi(): Api {
-    let api: Api;
+/** Build the configured model API without choosing a model for the caller. */
+export function createApi(): Api {
     const provider = process.env.PROVIDER || "openai";
-    if (provider === "mock") {
-        // Offline, deterministic, no key. See mock.ts.
-        api = createMockApi()
-    } else if (provider === "openai"){
-        api = createOpenAiApi({
-            name: "openai",
-            baseURL: "https://api.openai.com",
-            apiKey: process.env.OPENAI_API_KEY ?? "",
-        })
-    } else if (provider === "openrouter") {
-        // OpenAI-compatible; prefer free models e.g. openrouter/free or *:free
-        api = createOpenAiApi({
-            name: "openrouter",
-            baseURL: process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1",
-            apiKey: process.env.OPENROUTER_API_KEY ?? "",
-            headers: {
-                "HTTP-Referer":
-                    process.env.OPENROUTER_HTTP_REFERER || "http://localhost:3000",
-                "X-Title": process.env.OPENROUTER_APP_TITLE || "mini-pi-agent",
-            },
-        })
-    } else {
-        // openai 兼容的格式
-        api = createOpenAiApi({
-            name: process.env.PROVIDER || "openai",
-            baseURL: process.env.DEEPSEEK_BASE_URL || "https://api.openai.com",
-            apiKey: process.env.DEEPSEEK_API_KEY ?? "",
-        })
+
+    switch (provider) {
+        case "mock":
+            return createMockApi();
+        case "openai":
+            return createOpenAiApi({
+                name: "openai",
+                baseURL: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
+                apiKey: process.env.OPENAI_API_KEY ?? "",
+            });
+        case "openrouter":
+            return createOpenAiApi({
+                name: "openrouter",
+                baseURL: process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1",
+                apiKey: process.env.OPENROUTER_API_KEY ?? "",
+                headers: {
+                    "HTTP-Referer":
+                        process.env.OPENROUTER_HTTP_REFERER || "http://localhost:3000",
+                    "X-Title": process.env.OPENROUTER_APP_TITLE || "mini-pi-agent",
+                },
+            });
+        case "deepseek":
+            return createOpenAiApi({
+                name: "deepseek",
+                baseURL: process.env.DEEPSEEK_BASE_URL || "https://api.deepseek.com",
+                apiKey: process.env.DEEPSEEK_API_KEY ?? "",
+            });
+        default:
+            return createOpenAiApi({
+                name: provider,
+                baseURL: process.env.OPENAI_BASE_URL || "https://api.openai.com/v1",
+                apiKey: process.env.OPENAI_API_KEY ?? "",
+            });
     }
-    
-    return api;
 }
+
+/** @deprecated Use createApi(). */
+export const CreateApi = createApi;

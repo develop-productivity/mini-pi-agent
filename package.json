@@ -6,10 +6,9 @@
         "packages/*"
     ],
     "scripts": {
-        "cli": "tsx agent.ts",
-        "tui": "tsx agent_tui.ts",
         "typecheck": "tsc --noEmit",
-        "smoke": "tsx scripts/smoke.ts",
+        "smoke": "npm run smoke:packages && tsx scripts/smoke.ts",
+        "smoke:packages": "npm run smoke --workspaces --if-present",
         "demo:mock": "tsx demo/agent_mock.ts",
         "demo:loop": "tsx demo/min_agent_loop.ts"
     },
