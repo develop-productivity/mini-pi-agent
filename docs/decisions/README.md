@@ -13,3 +13,4 @@
 | 11-08 | [Session 和 MCP 按职责拆分](2026-11-08-session-mcp-file-layout.md) | 生效 |
 | 11-08 | [大改动经用户确认后可以扩大范围](2026-11-08-large-change-confirmation.md) | 生效 |
 | 11-08 | [不引入独立的 SessionManager](2026-11-08-no-session-manager.md) | 生效 |
+| 11-08 | [CodingAgentSession 负责构造 Agent](2026-11-08-session-owns-agent-construction.md) | 生效 |
