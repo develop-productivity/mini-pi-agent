@@ -6,3 +6,4 @@
 |---|---|---|
 | 10-24 | [做成 monorepo](2026-10-24-monorepo.md) | 已执行，PR #1 CI 通过，待合并 |
 | 11-01 | [工具边界迁移](2026-11-01-tool-boundary-migration.md) | 已执行，typecheck 和 smoke 通过 |
+| 11-08 | [Host、AgentUI 与 coding-agent 核心类](2026-11-08-host-agent-ui-boundary.md) | 设计草稿，等待用户拍板 |

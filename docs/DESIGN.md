@@ -43,7 +43,7 @@ mini-pi-agent 用来学习抽象：自己实现最小内核、会话、工具、
 2. **runtime 是可插拔的**——provider、tools、hooks、session 都是接口，可以换
 3. **sandbox 是 runtime 的执行守卫**——工具执行前过一遍权限检查
 4. **只做 CLI + TUI 两个宿主**——共享同一个 Agent 内核
-5. **每个模块尽量一个文件**——不超过 200 行
+5. **模块按职责拆分**——简单模块可以单文件，复杂能力按内聚职责拆分
 
 ### 项目结构
 
@@ -187,5 +187,5 @@ agent_loop 不知道、也不需要知道一个 tool 是内置的还是来自 MC
 | OpenAI 兼容格式 + mock | Anthropic 原生格式 | DeepSeek、OpenRouter 都走 OpenAI 兼容接口，一种 translator 就够 |
 | TUI 鼠标滚轮翻看之前的内容 | | 长对话必须能往回翻 |
 | 简单的权限弹窗（询问一次：允许 / 拒绝） | 复杂的权限弹窗交互 | 权限必须问用户，但不需要多级菜单 |
-| session：storage + buildContext 一个文件 | session 拆多个文件 | 每个模块尽量一个文件 |
-| MCP：client + adapter + loader 一个文件 | MCP 拆多个文件 | 同上 |
+| session：按 storage / projection / types 等职责拆分 | | 复杂运行时的职责需要独立文件 |
+| MCP：按 client / adapter / loader / types 拆分 | | 外部协议和传输生命周期不适合塞进单文件 |

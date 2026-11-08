@@ -23,7 +23,7 @@ npm workspaces monorepo：
 |---|---|---|
 | `@mini-pi/ai` | `packages/ai/` | 模型接入：中间格式类型、provider translator、mock、factory |
 | `@mini-pi/agent` | `packages/agent/` | agent_loop：Agent、事件总线、Tool 接口、注册表、executor |
-| `@mini-pi/coding-agent` | `packages/coding-agent/`（待建） | 宿主（CLI/TUI）、内置工具、sandbox、session、hooks、plugins |
+| `@mini-pi/coding-agent` | `packages/coding-agent/` | 宿主（CLI/TUI）、内置工具、sandbox、session、hooks、plugins |
 
 硬性规则：
 
@@ -41,7 +41,7 @@ npm workspaces monorepo：
 
 ```bash
 npm install          # 新增包或依赖之后
-npm run smoke        # 不需要 key：两个包按包名导入，mock 要工具 → 执行 → 喂回结果 → 结束
+npm run smoke        # 不需要 key：包内 smoke + ai → agent → coding-agent 跨包 smoke
 npm run typecheck    # 现在有 wip 类型错误，见 docs/PROGRESS.md
 ```
 
@@ -50,7 +50,9 @@ npm run typecheck    # 现在有 wip 类型错误，见 docs/PROGRESS.md
 - 需要真实模型时用 `.env`（照 `.env.example`），`.env` 不提交。
 
 ## 4. 分支、提交和 PR
+项目前期：可以不通过 PR，直接推送 `master`，但必须保证 CI 可运行。
 
+项目后期按照以下约定：
 - **不直接推 `master`。** 每个功能、修复都从 `master` 开分支，推上去提 PR，用户在 GitHub 上合并。
 - 分支名：`feat/<描述>`、`fix/<描述>`、`chore/<描述>`、`docs/<描述>`，描述用英文短横线，例如 `feat/agent-loop`。
 - 提交信息用 Conventional Commits（`feat:`、`fix:`、`refactor:`、`docs:`、`chore:`），说明可以写中文。
@@ -61,7 +63,7 @@ npm run typecheck    # 现在有 wip 类型错误，见 docs/PROGRESS.md
 
 ### 先写设计的改动
 
-新增包、改包之间的接口（`@mini-pi/*` 导出的类型和函数）、改目录结构或 CI、删除已有功能、预计改动超过约 200 行：先在 `docs/designs/YYYY-MM-DD-主题.md` 写设计——要解决什么、考虑过哪些方案、选哪个和为什么、风险（能否回滚）、怎么验证。自己对照已有决定审一遍：没问题就开工；发现问题就停下，把设计和问题交给用户。
+新增包、改包之间的接口（`@mini-pi/*` 导出的类型和函数）、改目录结构或 CI、删除已有功能、预计改动较大：先写设计或在对话中说明范围。用户明确确认后，可以扩大到超过约 200 行，不以规模阈值阻塞实现。设计要说明解决什么问题、考虑过哪些方案、选哪个和为什么、风险（能否回滚）、怎么验证。
 
 ### 代码审查
 

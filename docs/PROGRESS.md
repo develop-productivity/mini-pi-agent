@@ -28,6 +28,21 @@
 6. 实现 hooks、权限弹窗和 MCP/Skill 工具注册。
 7. 完整 Agent loop 跑通后，删除 CI typecheck 的 `continue-on-error`。
 
+### 下一阶段设计焦点
+
+1. `AgentUI` 放在哪个包、由谁创建；Agent 不应反向依赖 Host。
+2. 持有关系：Host 持有 `CodingAgentSession`，`CodingAgentSession` 持有 Agent 和 session 资源。
+3. `coding-agent` 核心类的职责：组合模型、工具、session、hooks、sandbox 和事件。
+4. 借鉴 Pi 的抽象：低层 Agent、产品级 AgentSession、StreamFn、AgentTool、ResourceLoader。
+
+设计草稿见 [Host、AgentUI 与 coding-agent 核心类](designs/2026-11-08-host-agent-ui-boundary.md)。
+
+### 审查遗留
+
+- 第 1、2、3、5 条必须修问题延期到下一次代码改动。
+- 根 CLI/TUI 脚本由用户本人补回。
+- 第 8–10 条建议仍待决定。
+
 ### 验证基线
 
 ```text
