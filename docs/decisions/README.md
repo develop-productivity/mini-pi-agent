@@ -12,3 +12,4 @@
 | 11-01 | [延后处理工具边界审查的必须修问题](2026-11-01-defer-tool-review-fixes.md) | 部分被替代（第 4、6 条已处理） |
 | 11-08 | [Session 和 MCP 按职责拆分](2026-11-08-session-mcp-file-layout.md) | 生效 |
 | 11-08 | [大改动经用户确认后可以扩大范围](2026-11-08-large-change-confirmation.md) | 生效 |
+| 11-08 | [不引入独立的 SessionManager](2026-11-08-no-session-manager.md) | 生效 |

@@ -19,7 +19,7 @@ Host（CLI/TUI/RPC）
   ├── 接收输入、渲染输出、处理权限交互
   └── 持有并驱动 CodingAgentSession
           ├── 持有 Agent
-          ├── 持有 SessionStorage
+          ├── 直接持有 SessionStorage
           ├── 提供工具、hooks、sandbox
           └── 订阅 AgentEvent 并持久化事实
               └── Agent 只负责循环、队列、事件和工具执行
@@ -30,10 +30,10 @@ Host（CLI/TUI/RPC）
 ## 待回答问题
 
 1. `AgentUI` 是 Host 内部的事件渲染器，还是需要注入给 `CodingAgentSession` 的展示端口？
-2. `CodingAgentSession` 是否同时持有 Agent、session storage、tool registry 和 hooks？
+2. `CodingAgentSession` 直接持有 Agent、SessionStorage 和产品级资源；不引入独立 SessionManager。
 3. Host 创建 Agent，还是 Host 只创建 `CodingAgentSession`，由后者创建 Agent？
 4. 哪些事件由 Agent 发出，哪些产品级事件由 `coding-agent` 扩展？
-5. session 持久化是 `coding-agent` 的内部职责，还是通过 Host subscriber 完成？
+5. `CodingAgentSession` 负责调用 `SessionStorage` 持久化，不通过 Host subscriber 完成。
 6. 如何借鉴 Pi 的 `Agent`、`AgentSession`、`StreamFn`、`AgentTool` 和 ResourceLoader 抽象，同时保持 mini-pi 的精简？
 
 ## 借鉴 Pi 的重点
@@ -63,4 +63,4 @@ Host（CLI/TUI/RPC）
 
 ## 用户的决定
 
-待定。
+- 不引入独立 `SessionManager`；由 `CodingAgentSession` 直接持有 `SessionStorage`。

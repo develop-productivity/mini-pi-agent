@@ -31,7 +31,7 @@
 ### 下一阶段设计焦点
 
 1. `AgentUI` 放在哪个包、由谁创建；Agent 不应反向依赖 Host。
-2. 持有关系：Host 持有 `CodingAgentSession`，`CodingAgentSession` 持有 Agent 和 session 资源。
+2. 持有关系：Host 持有 `CodingAgentSession`，`CodingAgentSession` 持有 Agent 和 SessionStorage；不引入独立 SessionManager。
 3. `coding-agent` 核心类的职责：组合模型、工具、session、hooks、sandbox 和事件。
 4. 借鉴 Pi 的抽象：低层 Agent、产品级 AgentSession、StreamFn、AgentTool、ResourceLoader。
 
