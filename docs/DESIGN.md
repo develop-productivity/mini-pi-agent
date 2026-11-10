@@ -2,33 +2,33 @@
 mini-pi-agent 用来学习抽象：自己实现最小内核、会话、工具、流式和扩展机制。
 企业生产直接接 Pi SDK：不要把 mini-pi 当生产框架，重点做隔离、会话服务、权限、可观测性和可靠性封装。
 
-## 三层架构
+## 运行时分层
 
 ```
-┌──────────────────────────────────────────────────────────────────┐
-│  Host（宿主）                                                      │
-│  cli.ts  ·  tui.ts                                                │
-│  只做 I/O：读键盘、写屏幕、权限交互                                  │
-└────────────────┬─────────────────────────────────────────────────┘
-                 │  AgentEventBus（事件订阅）
-┌────────────────▼─────────────────────────────────────────────────┐
-│  agent_loop（智能体执行循环）                                       │
-│  core/agent.ts  ·  core/events.ts                                  │
-│  while 循环：callLLM → 有工具就执行 → 喂回去 → 没有就停             │
-│  steering / follow-up / abort / turn 管理                           │
-└────────────────┬─────────────────────────────────────────────────┘
-                 │  Tool 接口（一切皆插件）
-┌────────────────▼─────────────────────────────────────────────────┐
-│  agent_runtime（智能体运行时）                                      │
-│  packages/ai（模型接入）· tools/ session/ hooks/ plugins/          │
-│  工具注册 · 多模型适配 · 流式输出 · 会话持久化 · 上下文压缩 · 钩子  │
-└────────────────┬─────────────────────────────────────────────────┘
-                 │  执行前拦截
-┌────────────────▼─────────────────────────────────────────────────┐
-│  sandbox（执行沙箱）                                               │
-│  路径约束 · bash 超时/输出上限 · 权限引擎（allow/deny/ask）          │
-└──────────────────────────────────────────────────────────────────┘
+Host（CLI / TUI / RPC）
+  │ 创建并持有
+  ▼
+CodingAgentSession（coding-agent/runtime）
+  ├── 持有 SessionStorage
+  ├── 配置工具、sandbox、hooks
+  ├── 订阅 Agent 事件并持久化事实
+  └── 创建并持有
+        ▼
+      Agent（agent/core）
+        ├── 持有当前运行状态、队列、事件总线和 ToolRegistry
+        ├── 调用 agent loop
+        │     └── 模型调用 → @mini-pi/ai
+        └── 通过 executor 调用 AgentTool
+              └── 具体工具实现 → sandbox / 文件 / bash / MCP
 ```
+
+关键区别：
+
+- `Host → CodingAgentSession → Agent` 是持有和调用方向。
+- `agent → @mini-pi/ai` 是模型依赖，不是独立的下层运行时。
+- `session/` 是 `CodingAgentSession` 持有的持久化组件，不画在 loop 下面。
+- `sandbox` 是 `coding-agent` 中工具实现使用的执行适配能力，不是 Agent loop 的下一层。
+- Agent loop 只依赖 `AgentTool`、模型调用和事件抽象，不知道 sandbox、文件或 MCP 的具体实现。
 
 ## mini-pi 精简方案
 
@@ -39,10 +39,10 @@ mini-pi-agent 用来学习抽象：自己实现最小内核、会话、工具、
 
 ### 精简原则
 
-1. **agent_loop 不依赖 runtime 的具体实现**——只认 Tool 接口和 event bus
-2. **runtime 是可插拔的**——provider、tools、hooks、session 都是接口，可以换
-3. **sandbox 是 runtime 的执行守卫**——工具执行前过一遍权限检查
-4. **只做 CLI + TUI 两个宿主**——共享同一个 Agent 内核
+1. **Host 只负责外部交互和组合入口**——不实现 Agent 循环
+2. **CodingAgentSession 是产品运行时**——组合 Agent、SessionStorage、工具和资源
+3. **Agent loop 只依赖抽象**——模型、工具和事件，不依赖 sandbox 或具体宿主
+4. **sandbox 是工具执行适配器**——由 `coding-agent` 提供，不由 Agent loop 实现
 5. **模块按职责拆分**——简单模块可以单文件，复杂能力按内聚职责拆分
 
 ### 项目结构
@@ -82,7 +82,7 @@ mini-pi-agent/
 
 ### 各层要点
 
-#### agent_loop（~120 行）
+#### Agent + agent_loop
 
 保留的核心：
 - 两层 while 循环（inner: tool_call, outer: turn + steering）
@@ -90,11 +90,11 @@ mini-pi-agent/
 - steering / follow-up 两个队列
 - 事件总线 emit agent_start/end, turn_*, message_*, tool_execution_*
 
-#### agent_runtime（~400 行，拆成 4 个子模块）
+#### CodingAgentSession（产品运行时）
 
 保留的核心：
-- Tool 接口：`name + description + parameters(TSchema) + execute(args, ctx) → string`
-- 注册表：`registerTool()` + `toolsByName` + 参数校验（typebox Compile/Check）
+- Tool 接口和 registry 属于 `@mini-pi/agent`
+- 内置工具、sandbox、hooks 和 MCP 由 `coding-agent` 组合后注入 Agent
 - Provider：`createApi()` → `{ complete(req): Promise<CompletionResponse> }`；流式 `stream(req)` 未实现
 - 上下文压缩（未实现）：超限时调用不带 tools 的 `complete()` 生成摘要，append 一条 marker，历史不删
 - Session：append-only JSONL，`appendMessage()` + `getEntries()` + `buildContext()`
@@ -102,14 +102,14 @@ mini-pi-agent/
 - MCP：stdio JSON-RPC，外部 server 的 tool 注册为本地 Tool
 - Skills：从 skills/ 目录加载 .md，元数据注入 system prompt
 
-#### sandbox（~100 行）
+#### sandbox（工具执行适配层）
 
 保留的核心：
 - 路径约束：所有文件操作限定在 SANDBOX_ROOT 下
 - bash 执行：超时、输出上限、进程树 kill、abort signal
 - 权限引擎：allow/deny/ask 三档 + argPattern 正则匹配 + session 内存
 
-#### Host（~200 行）
+#### Host（外部适配层）
 
 保留的核心：
 - CLI：readline + AgentUi 接口 + 权限 prompter
@@ -118,7 +118,7 @@ mini-pi-agent/
 ### "一切皆插件"在 mini-pi 中的体现
 
 ```
-内置工具 (tools/builtin.ts)
+内置工具 (coding-agent/tools/builtin.ts)
     ├── bash        → sandbox/bash.ts（带安全约束）
     ├── read_file   → sandbox/path.ts（路径约束）
     ├── write_file  → sandbox/path.ts（路径约束）
@@ -130,10 +130,10 @@ mini-pi-agent/
 
     ↓ 全部归一成同一个 Tool 接口 ↓
 
-tools/registry.ts 注册表
-    toolsByName["bash"] = { execute: ... }
-    toolsByName["mcp__filesystem__read"] = { execute: ... }
-    toolsByName["read_skill"] = { execute: ... }
+Agent 持有的 ToolRegistry
+    registry["bash"] = { execute: ... }
+    registry["mcp__filesystem__read"] = { execute: ... }
+    registry["read_skill"] = { execute: ... }
 
     ↓ agent_loop 只认这个表 ↓
 
