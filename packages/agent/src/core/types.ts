@@ -1,5 +1,5 @@
 import type { Static, TSchema } from "typebox";
-import type { ToolSpec } from "@mini-pi/ai";
+import type { ToolSpec, CompletionRequest, StreamEvent, Api } from "@mini-pi/ai";
 
 export type ToolProgressStream = "stdout" | "stderr";
 
@@ -18,3 +18,8 @@ export interface AgentTool<S extends TSchema = TSchema> extends ToolSpec {
 export function defineTool<S extends TSchema>(tool: AgentTool<S>): AgentTool<S> {
     return tool;
 }
+
+
+export type StreamFn = (
+    request: CompletionRequest,
+) => AsyncIterable<StreamEvent>;

@@ -1,4 +1,4 @@
-import type { AgentTool } from "./types.ts";
+import type { AgentTool } from "../core/types.ts";
 
 /** Per-agent tool lookup. It deliberately has no knowledge of built-in tools. */
 export class ToolRegistry {
@@ -10,6 +10,7 @@ export class ToolRegistry {
 
     register(tool: AgentTool): void {
         if (this.tools.has(tool.name)) {
+            // throw error must be catched in call
             throw new Error(`Tool already registered: ${tool.name}`);
         }
         this.tools.set(tool.name, tool);

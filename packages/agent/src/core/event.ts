@@ -1,4 +1,5 @@
-import type { Message } from "@mini-pi/ai";
+import type { Message,CompletionResponse } from "@mini-pi/ai";
+
 
 export type AgentEvent =
     | { type: "agent_start"; runId: string }

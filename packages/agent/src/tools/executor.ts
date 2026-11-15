@@ -2,7 +2,7 @@ import { Compile } from "typebox/compile";
 import { Value } from "typebox/value";
 import type { TSchema } from "typebox";
 import type { ToolRegistry } from "./registry.ts";
-import type { AgentTool, ToolContext } from "./types.ts";
+import type { AgentTool, ToolContext } from "../core/types.ts";
 
 export type ValidateResult =
     | { ok: true; args: Record<string, unknown> }
