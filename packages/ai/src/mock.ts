@@ -26,7 +26,7 @@ import type {
   CompletionRequest,
   CompletionResponse,
   Message,
-//   StreamEvent,
+  StreamEvent,
   ToolCall,
 } from "./types.ts";
 
@@ -197,58 +197,55 @@ export function createMockApi(options: MockOptions = {}): Api {
       },
     };
   }
-
   return {
     name,
-
     async complete(req: CompletionRequest): Promise<CompletionResponse> {
       if (req.signal?.aborted) throw new Error("Request aborted");
       if (delayMs) await sleep(delayMs);
       return buildResponse(req);
     },
-
     // 未实现：流式输出。types.ts 里的 stream() 接口定好后取消注释。
-    // async *stream(req: CompletionRequest): AsyncIterable<StreamEvent> {
-    //   const response = buildResponse(req);
-    //   const { message } = response;
+    async *stream(req: CompletionRequest): AsyncIterable<StreamEvent> {
+      const response = buildResponse(req);
+      const { message } = response;
 
-    //   // Text first, in small chunks: this is what exercises the delta path.
-    //   for (const chunk of chunkText(message.content, chunkSize)) {
-    //     if (req.signal?.aborted) throw new Error("Request aborted");
-    //     if (delayMs) await sleep(delayMs);
-    //     yield { type: "text_delta", delta: chunk };
-    //   }
+      // Text first, in small chunks: this is what exercises the delta path.
+      for (const chunk of chunkText(message.content, chunkSize)) {
+        if (req.signal?.aborted) throw new Error("Request aborted");
+        if (delayMs) await sleep(delayMs);
+        yield { type: "text_delta", delta: chunk };
+      }
 
-    //   // Then tool calls, with their JSON arriving in pieces like a real
-    //   // provider's partial-JSON stream.
-    //   const toolCalls = message.toolCalls ?? [];
-    //   for (const [i, call] of toolCalls.entries()) {
-    //     if (req.signal?.aborted) throw new Error("Request aborted");
-    //     yield { type: "tool_use_start", index: i, id: call.id, name: call.name };
+      // Then tool calls, with their JSON arriving in pieces like a real
+      // provider's partial-JSON stream.
+      const toolCalls = message.toolCalls ?? [];
+      for (const [i, call] of toolCalls.entries()) {
+        if (req.signal?.aborted) throw new Error("Request aborted");
+        yield { type: "tool_use_start", index: i, id: call.id, name: call.name };
 
-    //     const json = JSON.stringify(call.arguments);
-    //     const mid = Math.ceil(json.length / 2);
-    //     for (const piece of [json.slice(0, mid), json.slice(mid)]) {
-    //       if (!piece) continue;
-    //       if (delayMs) await sleep(delayMs);
-    //       yield { type: "tool_use_delta", index: i, deltaJson: piece };
-    //     }
+        const json = JSON.stringify(call.arguments);
+        const mid = Math.ceil(json.length / 2);
+        for (const piece of [json.slice(0, mid), json.slice(mid)]) {
+          if (!piece) continue;
+          if (delayMs) await sleep(delayMs);
+          yield { type: "tool_use_delta", index: i, deltaJson: piece };
+        }
 
-    //     yield {
-    //       type: "tool_use_end",
-    //       index: i,
-    //       id: call.id,
-    //       name: call.name,
-    //       arguments: call.arguments,
-    //     };
-    //   }
+        yield {
+          type: "tool_use_end",
+          index: i,
+          id: call.id,
+          name: call.name,
+          arguments: call.arguments,
+        };
+      }
 
-    //   yield {
-    //     type: "done",
-    //     message,
-    //     stopReason: response.stopReason,
-    //     ...(response.usage ? { usage: response.usage } : {}),
-    //   };
-    // },
+      yield {
+        type: "done",
+        message,
+        stopReason: response.stopReason,
+        ...(response.usage ? { usage: response.usage } : {}),
+      };
+    },
   };
 }

@@ -1,4 +1,5 @@
 import type { TSchema } from "typebox";
+import { iterateSse } from "./sse.ts"
 import type {
     Api,
     CompletionRequest,
@@ -6,6 +7,7 @@ import type {
     Message,
     ToolCall,
     ToolSpec,
+    StreamEvent,
 } from "./types.ts";
 
 export interface OpenAiConfig {
@@ -182,5 +184,105 @@ export function createOpenAiApi(config: OpenAiConfig): Api {
 
             return fromOpenAiResponse((await response.json()) as OpenAiResponse);
         },
+        async *stream(req: CompletionRequest) : AsyncIterable<StreamEvent> {
+            const body = {
+                model: req.model,
+                messages: toOpenAiMessages(req.messages),
+                tools: req.tools?.length? toOpenAiTools(req.tools) : undefined,
+                stream: true,
+                stream_options: { include_usage: true }
+
+            }
+            const res = await fetch(`${config.baseURL}/chat/completions`, {
+                method: "POST",
+                headers: {
+                    "Authorization": `Bearer ${config.apiKey}`,
+                    "Content-Type": "application/json",
+                    ...(config.headers || {}),
+
+                },
+                body: JSON.stringify(body),
+                signal: req.signal
+            })
+            if (!res.ok) throw new Error(`${config.name} ${res.status}: ${await res.text()}`);
+            if (!res.body) throw new Error(`${config.name}: no body`);
+            // 状态
+            let accumulatedText = "";
+            const toolCallsByIndex = new Map<number, {
+                id: string;
+                name: string;
+                partialJson: string;
+            }>();
+            let stopReason: CompletionResponse["stopReason"] = "end_turn";
+            let usage: CompletionResponse["usage"] | undefined;
+
+            for await (const sse of iterateSse(res.body, req.signal)) {
+                if (sse.data === "[DONE]") break;
+                const chunk = JSON.parse(sse.data) as any;
+                // usage 事件(choices 为空,usage 字段独立)
+                if (chunk.usage && (!chunk.choices || chunk.choices.length === 0)) {
+                    usage = {
+                        inputTokens: chunk.usage.prompt_tokens ?? 0,
+                        outputTokens: chunk.usage.completion_tokens ?? 0
+                    }
+                    continue
+                }
+                const choice = chunk.choices?.[0];
+                if (!choice) continue
+                const delta = choice.delta ?? {}
+                // text_delta
+                if (typeof delta.content === "string" && delta.content.length > 0) {
+                    accumulatedText += delta.content
+                    yield {type: "text_delta", delta: delta.content}
+                }
+                // tool_calls_delta
+                if (Array.isArray(delta.tool_calls)) {
+                    for (const tcDelta of delta.tool_calls) {
+                        const idx = tcDelta.index
+                        let exiting = toolCallsByIndex.get(idx);
+                        // 第一次见这idx
+                        if (!exiting) {
+                            exiting = {id: tcDelta.id ?? "", name: tcDelta.function.name, partialJson: ""};
+                            toolCallsByIndex.set(idx, exiting);
+                            yield {type: "tool_use_start", index:idx, id:exiting.id, name: exiting.name}
+                        }
+                        // 累计argments
+                        const argsFragment = tcDelta.function?.arguments;
+                        if (typeof argsFragment === "string" && argsFragment.length > 0 ){
+                            exiting.partialJson += argsFragment
+                            yield {type: "tool_use_delta", index:idx,  deltaJson: argsFragment}
+                        }
+                    }
+                }
+                // finish_reason
+                if (choice.finish_reason) {
+                    stopReason = mapStopReason(choice.finish_reason);   // ← 翻译一次,存翻译后的
+                    // finish 把所有累计的tool calls 收尾，parse json + yield too_use_end
+                    for (const [idx, tc] of toolCallsByIndex){
+                        let args : Record<string, unknown> = {}
+                        try {
+                            args = tc.partialJson ? JSON.parse(`${tc.partialJson}`) : {}
+                        } catch {}
+                        yield {type: "tool_use_end", index:idx, id:tc.id, name: tc.name, arguments: args}
+                    }
+                }
+            }
+            // 拼最终的message
+            const toolCalls : ToolCall[] = []
+            for (const [, tc] of toolCallsByIndex) {
+                let args : Record<string, unknown> = {}
+                try {
+                    args = tc.partialJson ? JSON.parse(`${tc.partialJson}`) : {}
+                } catch {}
+                toolCalls.push({id: tc.id, name: tc.name, arguments: args})
+            }
+            // yield done
+            yield {
+                type: "done",
+                message: { role: "assistant", content: accumulatedText, ...(toolCalls.length ? { toolCalls } : {})},
+                stopReason: stopReason,
+                usage
+            }
+        }
     };
 }

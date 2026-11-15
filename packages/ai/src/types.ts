@@ -35,5 +35,16 @@ export interface Api {
     name: string;
     complete(req: CompletionRequest) : Promise<CompletionResponse>;
     // 未实现：流式输出
-    // stream(req: CompletionRequest) : AsyncIterable<StreamEvent>;
+    stream(req: CompletionRequest) : AsyncIterable<StreamEvent>;
 }
+
+
+export type StreamEvent =
+    | { type: "text_delta"; delta: string }
+    | { type: "tool_use_start"; index: number; id: string; name: string }
+    | { type: "tool_use_delta"; index: number; deltaJson: string }
+    | { type: "tool_use_end"; index: number; id: string; name: string; arguments: Record<string, unknown> }
+    | { type: "done";
+        message: CompletionResponse["message"];
+        stopReason: CompletionResponse["stopReason"];
+        usage?: CompletionResponse["usage"] };
