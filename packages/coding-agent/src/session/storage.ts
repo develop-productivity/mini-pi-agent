@@ -4,7 +4,7 @@ import { readFile, writeFile, appendFile, access } from "node:fs/promises";
 
 
 // 补齐缺失的类型定义
-interface SessionOpts {
+export interface SessionStorageOptions {
   cwd: string;
   id?: string;  // 可选：外部指定 session id，否则内部生成
 }
@@ -23,7 +23,7 @@ export class SessionStorage {
     }
 
     // 工厂方法：新建 or 打开
-    static async create(filePath: string, opts?: SessionOpts): Promise<SessionStorage> {
+    static async create(filePath: string, opts?: SessionStorageOptions): Promise<SessionStorage> {
         const header : SessionHeader = {
             type: "session",
             version: 1,
@@ -48,7 +48,14 @@ export class SessionStorage {
         const entries = lines.slice(1).map(line => JSON.parse(line) as SessionEntry);
         return new SessionStorage(filePath, header, entries);
     }
-
+    static async openOrCreate(filePath: string, opts?: SessionStorageOptions): Promise<SessionStorage> {
+        try {
+            await access(filePath);
+            return this.open(filePath)
+        }catch {
+            return this.create(filePath, opts); // 文件不存在或无访问权限
+        }
+    }
     // 元数据
     getMetadata(): SessionMetadata {
         return {
