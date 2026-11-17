@@ -68,7 +68,7 @@ export class SessionStorage {
 
     // 追加
     async appendEntry(entry: SessionEntry): Promise<void> {
-        if (this,this.byId.has(entry.id)) {
+        if (this.byId.has(entry.id)) {
             throw new Error(`entry ${entry.id} already exists`);
         }
         await appendFile(this.filePath, JSON.stringify(entry) + "\n")
