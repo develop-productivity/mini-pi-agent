@@ -1,11 +1,13 @@
 import assert from "node:assert/strict";
 import { Type } from "typebox";
+import { createMockApi, type MockStep } from "@mini-pi/ai";
 import {
     Agent,
     AgentEventBus,
     createToolRegistry,
     defineTool,
     executeTool,
+    type AgentEvent,
 } from "../src/index.ts";
 
 let executions = 0;
@@ -20,10 +22,6 @@ const echoTool = defineTool({
 });
 
 const registry = createToolRegistry([echoTool]);
-// 新增steamFn，因此测试脚本需要重写。
-// const streamFn
-// const agent = new Agent({streamFn: StreamFn, toolRegistry: registry });
-// assert.deepEqual(agent.listTools().map((tool) => tool.name), ["echo"]);
 
 const result = await executeTool(
     registry,
@@ -64,6 +62,106 @@ await bus.emit({ type: "turn_start", turn: 1 }, new AbortController().signal);
 assert.equal(received, 1);
 assert.equal(listenerErrors.length, 1);
 
-// await assert.rejects(() => agent.prompt("not implemented"), /not implemented/);
+// ---- Agent + mock stream：完整跑一次"请求工具 → 执行 → 回填 → 最终回复" ----
 
-// console.log("agent smoke ok");
+function createAgent(script: MockStep[], onEcho?: (agent: Agent) => void) {
+    const api = createMockApi({ script });
+    const tool = defineTool({
+        name: "echo",
+        description: "Echo a string",
+        parameters: Type.Object({ text: Type.String() }),
+        execute: async ({ text }) => {
+            onEcho?.(agent);
+            return text;
+        },
+    });
+    const agent: Agent = new Agent({ streamFn: (req) => api.stream(req), tools: [tool] });
+    return agent;
+}
+
+/** 把连续的 message_update 合并成一个，便于断言事件顺序。 */
+function eventTypes(events: AgentEvent[]): string[] {
+    const types: string[] = [];
+    for (const event of events) {
+        if (event.type === "message_update" && types.at(-1) === "message_update") continue;
+        types.push(event.type);
+    }
+    return types;
+}
+
+const callEcho: MockStep = { text: "Calling echo.", toolCalls: [{ name: "echo", arguments: { text: "hi" } }] };
+
+{
+    const agent = createAgent([callEcho, { text: "Done." }]);
+    assert.deepEqual(agent.listTools().map((tool) => tool.name), ["echo"]);
+
+    const events: AgentEvent[] = [];
+    agent.subscribe((event) => {
+        events.push(event);
+    });
+    await agent.prompt("hello");
+
+    assert.deepEqual(eventTypes(events), [
+        "agent_start",
+        "message_start", "message_end",                        // user prompt
+        "turn_start",
+        "message_start", "message_update", "message_end",      // assistant + toolCalls
+        "tool_execution_start", "tool_execution_end",
+        "message_start", "message_end",                        // tool result
+        "turn_end",
+        "turn_start",
+        "message_start", "message_update", "message_end",      // final assistant
+        "turn_end",
+        "agent_end",
+    ]);
+    assert.deepEqual(agent.state.messages.map((m) => m.role), ["user", "assistant", "tool", "assistant"]);
+    assert.equal(agent.state.messages[2]?.content, "hi");
+    assert.equal(agent.state.isRunning, false);
+    assert.equal(agent.state.pendingToolCalls.size, 0);
+
+    // 第二次 prompt 带着之前的历史：mock 脚本已用完，会回显最后一条 user 消息。
+    await agent.prompt("again");
+    assert.deepEqual(agent.state.messages.map((m) => m.role), [
+        "user", "assistant", "tool", "assistant", "user", "assistant",
+    ]);
+    assert.match(agent.state.messages[5]?.content ?? "", /again/);
+}
+
+{
+    // steering：工具执行期间插话，注入在 tool result 之后、下一次模型调用之前。
+    let steered = false;
+    const agent = createAgent([callEcho, { text: "Saw the steer." }], (a) => {
+        if (!steered) a.steer("stop and summarize");
+        steered = true;
+    });
+    await agent.prompt("hello");
+    assert.deepEqual(
+        agent.state.messages.map((m) => `${m.role}:${m.role === "user" ? m.content : ""}`),
+        ["user:hello", "assistant:", "tool:", "user:stop and summarize", "assistant:"],
+    );
+}
+
+{
+    // follow-up：只在模型本来要停下时才注入，之后再跑一轮。
+    let queued = false;
+    const agent = createAgent([callEcho, { text: "First answer." }, { text: "Follow-up answer." }], (a) => {
+        if (!queued) a.followUp("one more thing");
+        queued = true;
+    });
+    await agent.prompt("hello");
+    assert.deepEqual(
+        agent.state.messages.map((m) => `${m.role}:${m.role === "user" ? m.content : ""}`),
+        ["user:hello", "assistant:", "tool:", "assistant:", "user:one more thing", "assistant:"],
+    );
+    assert.equal(agent.state.messages.at(-1)?.content, "Follow-up answer.");
+}
+
+{
+    // 同一时间只能有一个运行。
+    const agent = createAgent([{ text: "ok" }]);
+    const running = agent.prompt("first");
+    await assert.rejects(() => agent.prompt("second"), /already processing/);
+    await running;
+}
+
+console.log("agent smoke ok");

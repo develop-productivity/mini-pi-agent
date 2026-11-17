@@ -1,12 +1,13 @@
 import type { Message } from "@mini-pi/ai";
 import {
     AgentEventBus,
+    type AgentEvent,
     type AgentEventListener,
     type AgentListenerErrorHandler,
 } from "./event.ts";
 import { createToolRegistry, type ToolRegistry } from "../tools/registry.ts";
-import type { AgentTool, StreamFn } from "./types.ts";
-import { runAgentLoop } from "./agent-loop.ts";
+import type { AgentTool, StreamFn, AgentLoopConfig, AgentLoopContext, AgentState } from "./types.ts";
+import { runAgentLoop, type AgentEventSink} from "./agent-loop.ts";
 
 
 type QueueMode = "all" | "one-at-a-time";
@@ -48,13 +49,17 @@ export interface AgentOptions {
     onListenerError?: AgentListenerErrorHandler;
 }
 
+
 export class Agent {
-    private readonly steeringQueue = new PendingMessageQueue("one-at-a-time");
-    private readonly followUpQueue = new PendingMessageQueue("all");
+    private readonly steeringQueue: PendingMessageQueue;
+    private readonly followUpQueue: PendingMessageQueue;
     private readonly eventBus: AgentEventBus;
     private readonly toolRegistry: ToolRegistry;
     private readonly streamFn: StreamFn
     private activeRun?: ActiveRun;
+    private runingMessages: Message[]
+    private streamingMessage?: Message;
+    private readonly pendingToolCalls = new Set<string>();
 
     constructor(
         options:AgentOptions
@@ -62,6 +67,9 @@ export class Agent {
         this.streamFn = options.streamFn;
         this.eventBus = new AgentEventBus(options.onListenerError);
         this.toolRegistry = options.toolRegistry ?? createToolRegistry(options.tools ?? []);
+        this.steeringQueue = new PendingMessageQueue("one-at-a-time");
+        this.followUpQueue = new PendingMessageQueue("all");
+        this.runingMessages = []
     }
 
     steer(text: string): void {
@@ -78,7 +86,15 @@ export class Agent {
 
     abort(): void {
         this.activeRun?.abortController.abort()
-        // The active run does not exist until the loop is implemented.
+    }
+
+    get state(): AgentState {
+        return {
+            messages: this.runingMessages,
+            streamingMessage: this.streamingMessage,
+            pendingToolCalls: this.pendingToolCalls,
+            isRunning: this.activeRun !== undefined,
+        };
     }
 
     listTools(): AgentTool[] {
@@ -93,11 +109,26 @@ export class Agent {
 		}
         return [{"role": "user", "content": input}]
     }
-    async runPromptMessages(messages: Message[]): Promise<void> {
-        //
-        runAgentLoop(messages, this.toolRegistry, this.streamFn, this.activeRun?.abortController.signal )
-        throw new Error("Agent has not implemented")
+    private createLoopConfig(options: {} = {}): AgentLoopConfig {
+        return {
+            model:"deepseek",
+            toolRegistry: this.toolRegistry,
+            streamFn: this.streamFn,
+            getSteeringMessages: async () => this.steeringQueue.drain(),
+            getFollowUpMessages: async () => this.followUpQueue.drain(),
+        }
     }
+    private createContextSnapshot(): AgentLoopContext {
+        return {
+            messages: [...this.runingMessages],
+            tools: this.toolRegistry.list()
+        }
+    }
+
+    private async runPromptMessages(messages: Message[], emit: AgentEventSink, signal: AbortSignal): Promise<void> {
+        await runAgentLoop(messages, this.createContextSnapshot(), this.createLoopConfig({}), emit, signal)
+    }
+
     async prompt(input: string | Message | Message[]): Promise<void> {
 		if (this.activeRun) {
 			throw new Error(
@@ -106,14 +137,56 @@ export class Agent {
 		}
         const run: ActiveRun = { abortController: new AbortController() };
         this.activeRun = run
+        const signal = run.abortController.signal;
 		try {
             const messages = this.normalizePromptInput(input);
-            await this.runPromptMessages(messages, );
+            await this.runPromptMessages(
+                messages, 
+                (event) => this.processEvents(event, signal),
+                signal,
+            );
         } finally {
             // 只清理本次运行，避免误清理其他运行的状态
             if (this.activeRun === run) {
                 this.activeRun = undefined;
+                // 出错或 abort 时 loop 不会发 agent_end，这里兜底清掉运行期状态
+                this.clearRunState();
             }
         }
 	}
+
+    private clearRunState(): void {
+        this.streamingMessage = undefined;
+        this.pendingToolCalls.clear();
+    }
+
+    /** 先根据事件更新自己的状态，再转发给监听器：监听器读到的 state 已经是最新的。 */
+    private async processEvents(event: AgentEvent, signal: AbortSignal): Promise<void> {
+        switch (event.type) {
+            case "message_start":
+            case "message_update":
+                this.streamingMessage = event.message;
+                break;
+
+            case "message_end":
+                // 历史只在这里追加：每条进入上下文的消息，loop 都会发一次 message_end
+                this.streamingMessage = undefined;
+                this.runingMessages.push(event.message);
+                break;
+
+            case "tool_execution_start":
+                this.pendingToolCalls.add(event.toolCallId);
+                break;
+
+            case "tool_execution_end":
+                this.pendingToolCalls.delete(event.toolCallId);
+                break;
+
+            case "agent_end":
+                this.clearRunState();
+                break;
+        }
+
+        await this.eventBus.emit(event, signal);
+    }
 }
