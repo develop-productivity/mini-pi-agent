@@ -14,11 +14,28 @@ export interface ToolCall {
 
 // agent 内部统一用的形状，跟外部 API（DeepSeek/OpenAI/mock）长什么样完全无关。
 
+/**
+ * 模型为什么停下。"error" / "aborted" 不是模型给的，是调用失败或被中止时由我们写入的：
+ * 失败也编码成一条 assistant 消息，而不是抛异常（参考 pi）。
+ */
+export type StopReason = "end_turn" | "tool_use" | "max_tokens" | "stop_sequence" | "error" | "aborted";
+
+export interface AssistantMessage {
+    role: "assistant";
+    content: string;
+    toolCalls?: ToolCall[];
+    /** 可选：旧的 session JSONL 和手写的历史消息里没有这个字段。 */
+    stopReason?: StopReason;
+    /** stopReason 为 "error" / "aborted" 时的说明。 */
+    errorMessage?: string;
+}
+
 export type Message =
     | { role: "system"; content: string }
-    | { role: "assistant"; content: string; toolCalls?: ToolCall[] }
+    | AssistantMessage
     | { role: "user"; content: string }
     | { role: "tool"; toolCallId: string; content: string; isError?: boolean }
+
 export interface CompletionRequest {
     model: string;
     messages: Message[];
@@ -26,9 +43,9 @@ export interface CompletionRequest {
     signal?: AbortSignal;
 }
 export interface CompletionResponse {
-    message: { role: "assistant"; content: string; toolCalls?: ToolCall[] };
+    message: AssistantMessage;
     usage?: { inputTokens: number, outputTokens: number }
-    stopReason?: "end_turn" | "tool_use" | "max_tokens" | "stop_sequence" | "error";
+    stopReason?: StopReason;
 }
 
 export interface Api {

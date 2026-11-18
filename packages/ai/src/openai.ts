@@ -140,6 +140,7 @@ function fromOpenAiResponse(response: OpenAiResponse): CompletionResponse {
             ...(choice.message.tool_calls?.length
                 ? { toolCalls: choice.message.tool_calls.map(mapToolCall) }
                 : {}),
+            stopReason: mapStopReason(choice.finish_reason),
         },
         stopReason: mapStopReason(choice.finish_reason),
         ...(response.usage
@@ -279,7 +280,7 @@ export function createOpenAiApi(config: OpenAiConfig): Api {
             // yield done
             yield {
                 type: "done",
-                message: { role: "assistant", content: accumulatedText, ...(toolCalls.length ? { toolCalls } : {})},
+                message: { role: "assistant", content: accumulatedText, ...(toolCalls.length ? { toolCalls } : {}), stopReason },
                 stopReason: stopReason,
                 usage
             }

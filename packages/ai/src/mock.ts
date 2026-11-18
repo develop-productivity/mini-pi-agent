@@ -174,7 +174,7 @@ export function createMockApi(options: MockOptions = {}): Api {
         "[mock summary] Earlier turns covered the user's request and the tool "
         + "results needed to answer it.";
       return {
-        message: { role: "assistant", content: summary },
+        message: { role: "assistant", content: summary, stopReason: "end_turn" },
         stopReason: "end_turn",
         usage: {
           inputTokens: estimateTokens(req.messages.map((m) => m.content ?? "").join("")),
@@ -188,9 +188,10 @@ export function createMockApi(options: MockOptions = {}): Api {
     const toolCalls = toToolCalls(step, index);
     const text = step.text ?? "";
 
+    const stopReason = stopReasonFor(step, toolCalls);
     return {
-      message: { role: "assistant", content: text, ...(toolCalls ? { toolCalls } : {}) },
-      stopReason: stopReasonFor(step, toolCalls),
+      message: { role: "assistant", content: text, ...(toolCalls ? { toolCalls } : {}), stopReason },
+      stopReason,
       usage: {
         inputTokens: estimateTokens(req.messages.map((m) => m.content ?? "").join("")),
         outputTokens: estimateTokens(text),
