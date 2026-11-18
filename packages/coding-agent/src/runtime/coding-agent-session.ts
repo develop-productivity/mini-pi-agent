@@ -43,6 +43,17 @@ class CodingAgentSession {
     abort() : void {
         this.agent.abort()
     }
+    /**
+     * 清空排队中的 steering / follow-up，并把文本返回给调用方（参考 pi）。
+     * Host 在用户中止时调用它，把这些还没发出的输入放回输入框。
+     */
+    clearQueue(): { steering: string[]; followUp: string[] } {
+        const { steering, followUp } = this.agent.clearAllQueues();
+        return {
+            steering: steering.map((message) => message.content),
+            followUp: followUp.map((message) => message.content),
+        };
+    }
     subscribe() : void {
         
     }

@@ -159,6 +159,9 @@ async function agentLoop(
 
             await emit({ type: "turn_end", turn: turnCount, message: response.message, toolResults });
 
+            // 已中止：不再从队列取 steering / follow-up，排队的消息留给上层处理（clearAllQueues）。
+            if (signal.aborted) return;
+
             // 时机 ①：一轮的工具全部执行完之后才注入 steering，
             // 保证每个 tool call 后面紧跟它的 tool result。
             pending = (await agentLoopConfig.getSteeringMessages?.()) ?? [];

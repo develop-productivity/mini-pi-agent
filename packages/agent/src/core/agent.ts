@@ -29,8 +29,9 @@ class PendingMessageQueue {
         return first ? [first] : [];
     }
 
-    clear(): void {
-        this.messages.splice(0);
+    /** 清空队列，并返回被清掉的消息，便于上层把它们还给用户。 */
+    clear(): Message[] {
+        return this.messages.splice(0);
     }
 
     enqueue(message: Message): void {
@@ -103,6 +104,31 @@ export class Agent {
 
     subscribe(listener: AgentEventListener): () => void {
         return this.eventBus.subscribe(listener);
+    }
+
+    /** 清空 steering 队列，返回被清掉的消息。 */
+    clearSteeringQueue(): Message[] {
+        return this.steeringQueue.clear();
+    }
+
+    /** 清空 follow-up 队列，返回被清掉的消息。 */
+    clearFollowUpQueue(): Message[] {
+        return this.followUpQueue.clear();
+    }
+
+    /**
+     * 清空两个队列，返回被清掉的消息（参考 pi）。
+     * abort() 不会自动调用它：排队的消息是用户还没发出的输入，丢掉还是还给输入框由上层决定。
+     */
+    clearAllQueues(): { steering: Message[]; followUp: Message[] } {
+        return {
+            steering: this.clearSteeringQueue(),
+            followUp: this.clearFollowUpQueue(),
+        };
+    }
+
+    hasQueuedMessages(): boolean {
+        return this.steeringQueue.hasItems() || this.followUpQueue.hasItems();
     }
 
     abort(): void {

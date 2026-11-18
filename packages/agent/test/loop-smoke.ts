@@ -161,6 +161,28 @@ const callEcho: MockStep = { text: "Calling echo.", toolCalls: [{ name: "echo", 
 }
 
 {
+    // abort：工具执行中先插话再中止。这一轮收尾后 loop 不再取队列，插话留在队列里等上层处理。
+    const agent = createAgent([callEcho, { text: "should not be reached" }], (a) => {
+        a.steer("stale");
+        a.followUp("later");
+        a.abort();
+    });
+    const events: AgentEvent[] = [];
+    agent.subscribe((event) => {
+        events.push(event);
+    });
+    await agent.prompt("hello");
+    assert.deepEqual(agent.state.messages.map((m) => m.role), ["user", "assistant", "tool"]);
+    assert.deepEqual(eventTypes(events).slice(-2), ["turn_end", "agent_end"]);
+    assert.equal(agent.hasQueuedMessages(), true);
+
+    const cleared = agent.clearAllQueues();
+    assert.deepEqual(cleared.steering.map((m) => m.content), ["stale"]);
+    assert.deepEqual(cleared.followUp.map((m) => m.content), ["later"]);
+    assert.equal(agent.hasQueuedMessages(), false);
+}
+
+{
     // 同一时间只能有一个运行。
     const agent = createAgent([{ text: "ok" }]);
     const running = agent.prompt("first");
