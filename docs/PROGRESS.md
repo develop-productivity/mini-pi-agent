@@ -1,6 +1,6 @@
 # mini-pi-agent 开发进度
 
-## 当前状态：Agent 双层循环已跑通，尚未接入 Session 和 Host
+## 当前状态：Agent 双层循环和最小 CLI 已跑通，Session 尚未持久化
 
 `npm run typecheck` 已清零，`npm run smoke` 通过包内测试和跨包测试。`Agent.prompt()` 通过注入的 `StreamFn` 跑完"模型调用 → 工具执行 → 结果回填 → 再次调用模型"，steering / follow-up 已接入，完整事件序列由 agent smoke 断言。
 
@@ -24,9 +24,9 @@
 
 1. ~~实现 `Agent.prompt()`：模型调用 → tool calls → executor → tool result 回填 → 再次调用模型。~~ 已完成。
 2. turn/steering/follow-up 已完成并有测试。abort 还缺：中止后 loop 直接抛错、不发 `agent_end`，也没有测试；需要决定中止时是否写入一条带 `stopReason` 的 assistant 消息。
-3. 新建 CLI 宿主，让 Agent 只通过事件通知 Host，不反向依赖 UI。
+3. ~~新建 CLI 宿主~~ 最小 CLI 已完成：`packages/coding-agent/src/host/`（bootstrap / renderer / cli），`PROVIDER=mock npx tsx packages/coding-agent/src/host/cli.ts` 跑通一整轮；根目录 `cli` 脚本由用户补回；Ctrl+C 中止还没验证（需要在真实终端里手动试）。
 4. 将 session 接入 Agent，验证 JSONL 恢复和 context 构建。
-5. 实现流式输出和上下文压缩。
+5. Host 端流式渲染（loop 已发出 `message_update`），以及上下文压缩。
 6. 实现 hooks、权限弹窗和 MCP/Skill 工具注册。
 7. 完整 Agent loop 跑通后，删除 CI typecheck 的 `continue-on-error`。
 
@@ -38,6 +38,11 @@
 4. 借鉴 Pi 的抽象：低层 Agent、产品级 AgentSession、StreamFn、AgentTool、ResourceLoader。
 
 设计草稿见 [Host、AgentUI 与 coding-agent 核心类](designs/2026-11-08-host-agent-ui-boundary.md)。
+
+### 已知问题
+
+- `CodingAgentSession.setModel()` 不生效：`Agent.state` 每次返回新对象，给它的 `model` 赋值改不到 `_state`。需要让 `state` 返回 `_state` 本身，或在 Agent 上提供修改入口。
+- 模型流式输出过程中 abort 仍会抛错、事件不完整（审查第 2 条剩余部分）。
 
 ### 审查遗留
 
