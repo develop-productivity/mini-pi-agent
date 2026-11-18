@@ -14,7 +14,7 @@
  *  └── session 生命周期
  */
 
-import { Agent, type AgentOptions } from "@mini-pi/agent";
+import { Agent, type AgentEventListener, type AgentOptions } from "@mini-pi/agent";
 import { SessionStorage, type SessionStorageOptions } from "../session/storage.ts";
 
 export interface CodingAgentSessionOptions {
@@ -24,7 +24,7 @@ export interface CodingAgentSessionOptions {
     abortSignal?: AbortSignal;
 }
 
-class CodingAgentSession {
+export class CodingAgentSession {
     private readonly agent: Agent;
     private readonly sessionStorage: SessionStorage;
     constructor(agent: Agent, sessionStorage : SessionStorage) {
@@ -54,8 +54,16 @@ class CodingAgentSession {
             followUp: followUp.map((message) => message.content),
         };
     }
-    subscribe() : void {
-        
+    /**
+     * 订阅事件。目前直接透传 AgentEvent；以后有了 session 自己的事件（AgentSessionEvent），
+     * 再决定是合并成一个联合类型还是分开订阅。返回取消订阅的函数。
+     */
+    subscribe(listener: AgentEventListener): () => void {
+        return this.agent.subscribe(listener);
+    }
+    async setModel(model:string): Promise<void> {
+        this.agent.state.model=model;
+
     }
 
 }

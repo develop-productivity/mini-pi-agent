@@ -28,6 +28,10 @@ export interface AgentUI {
 export interface HostOptions {
     cwd: string;
     sessionPath: string;
+    /** 只用于显示；真正选 provider 的是 @mini-pi/ai 的 createApi()（读 PROVIDER）。 */
+    provider: string;
+    /** 模型由 Host 决定，经 initialState 交给 Agent。 */
+    model: string;
     // 其他 Host 配置
 }
 
