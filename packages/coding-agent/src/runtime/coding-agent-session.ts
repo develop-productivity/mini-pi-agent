@@ -64,6 +64,7 @@ export async function createCodingAgentSession(agentOptions: AgentOptions, agent
         toolRegistry: agentOptions.toolRegistry,
         streamFn: agentOptions.streamFn,
         onListenerError: agentOptions.onListenerError,
+        initialState: agentOptions.initialState, // model 由 Host 决定
     })
     
     return new CodingAgentSession(agent, sessionStorage)

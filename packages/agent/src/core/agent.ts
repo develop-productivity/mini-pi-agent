@@ -47,8 +47,30 @@ export interface AgentOptions {
     tools?: readonly AgentTool[];
     toolRegistry?: ToolRegistry;
     onListenerError?: AgentListenerErrorHandler;
+    initialState: AgentInitialState
 }
 
+
+type MutableAgentState = Omit<AgentState, "streamingMessage" | "pendingToolCalls" | "errorMessage" | "isRunning"> & {
+	streamingMessage?: Message;
+	pendingToolCalls: Set<string>;
+	errorMessage?: string;
+};
+
+export type AgentInitialState =  { model: string } & Partial<
+	Omit<AgentState, "pendingToolCalls" | "streamingMessage" | "errorMessage" | "isRunning">
+>;
+
+
+function createMutableAgentState(initialState: AgentInitialState): MutableAgentState {
+    return {
+        messages:  [...(initialState.messages ?? [])],
+        model:initialState.model,
+        streamingMessage: undefined,
+		pendingToolCalls: new Set<string>(),
+		errorMessage: undefined,
+    }
+}
 
 export class Agent {
     private readonly steeringQueue: PendingMessageQueue;
@@ -57,19 +79,18 @@ export class Agent {
     private readonly toolRegistry: ToolRegistry;
     private readonly streamFn: StreamFn
     private activeRun?: ActiveRun;
-    private runingMessages: Message[]
-    private streamingMessage?: Message;
-    private readonly pendingToolCalls = new Set<string>();
+    private _state: MutableAgentState
 
     constructor(
         options:AgentOptions
     ) {
+        // const runtimeOptions: Partial<AgentOptions> = {}
         this.streamFn = options.streamFn;
         this.eventBus = new AgentEventBus(options.onListenerError);
         this.toolRegistry = options.toolRegistry ?? createToolRegistry(options.tools ?? []);
         this.steeringQueue = new PendingMessageQueue("one-at-a-time");
         this.followUpQueue = new PendingMessageQueue("all");
-        this.runingMessages = []
+        this._state = createMutableAgentState(options.initialState);
     }
 
     steer(text: string): void {
@@ -90,9 +111,10 @@ export class Agent {
 
     get state(): AgentState {
         return {
-            messages: this.runingMessages,
-            streamingMessage: this.streamingMessage,
-            pendingToolCalls: this.pendingToolCalls,
+            model:this._state.model,
+            messages: this._state.messages,
+            streamingMessage: this._state.streamingMessage,
+            pendingToolCalls: this._state.pendingToolCalls,
             isRunning: this.activeRun !== undefined,
         };
     }
@@ -111,7 +133,7 @@ export class Agent {
     }
     private createLoopConfig(options: {} = {}): AgentLoopConfig {
         return {
-            model:"deepseek",
+            model:this._state.model,
             toolRegistry: this.toolRegistry,
             streamFn: this.streamFn,
             getSteeringMessages: async () => this.steeringQueue.drain(),
@@ -120,7 +142,7 @@ export class Agent {
     }
     private createContextSnapshot(): AgentLoopContext {
         return {
-            messages: [...this.runingMessages],
+            messages: [...this._state.messages],
             tools: this.toolRegistry.list()
         }
     }
@@ -156,32 +178,32 @@ export class Agent {
 	}
 
     private clearRunState(): void {
-        this.streamingMessage = undefined;
-        this.pendingToolCalls.clear();
+        this._state.streamingMessage = undefined;
+        this._state.pendingToolCalls.clear();
     }
 
     /** 先根据事件更新自己的状态，再转发给监听器：监听器读到的 state 已经是最新的。 */
     private async processEvents(event: AgentEvent, signal: AbortSignal): Promise<void> {
         switch (event.type) {
+            
             case "message_start":
             case "message_update":
-                this.streamingMessage = event.message;
+                this._state.streamingMessage = event.message;
                 break;
 
             case "message_end":
                 // 历史只在这里追加：每条进入上下文的消息，loop 都会发一次 message_end
-                this.streamingMessage = undefined;
-                this.runingMessages.push(event.message);
+                this._state.streamingMessage = undefined;
+                this._state.messages.push(event.message);
                 break;
 
             case "tool_execution_start":
-                this.pendingToolCalls.add(event.toolCallId);
+                this._state.pendingToolCalls.add(event.toolCallId);
                 break;
 
             case "tool_execution_end":
-                this.pendingToolCalls.delete(event.toolCallId);
+                this._state.pendingToolCalls.delete(event.toolCallId);
                 break;
-
             case "agent_end":
                 this.clearRunState();
                 break;

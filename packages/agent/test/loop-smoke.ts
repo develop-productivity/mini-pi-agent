@@ -75,7 +75,11 @@ function createAgent(script: MockStep[], onEcho?: (agent: Agent) => void) {
             return text;
         },
     });
-    const agent: Agent = new Agent({ streamFn: (req) => api.stream(req), tools: [tool] });
+    const agent: Agent = new Agent({
+        streamFn: (req) => api.stream(req),
+        tools: [tool],
+        initialState: { model: "mock" },
+    });
     return agent;
 }
 
