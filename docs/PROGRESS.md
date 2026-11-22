@@ -1,6 +1,6 @@
 # mini-pi-agent 开发进度
 
-## 当前状态：Agent 双层循环和最小 CLI 已跑通，Session 尚未持久化
+## 当前状态：Agent 双层循环、最小 CLI、Session 持久化与恢复已跑通，SDK 入口已提供
 
 `npm run typecheck` 已清零，`npm run smoke` 通过包内测试和跨包测试。`Agent.prompt()` 通过注入的 `StreamFn` 跑完"模型调用 → 工具执行 → 结果回填 → 再次调用模型"，steering / follow-up 已接入，完整事件序列由 agent smoke 断言。
 
@@ -17,15 +17,17 @@
 | `@mini-pi/agent` Agent 状态 | 基础完成 | `processEvents` 先根据事件更新 `state`（历史、流式消息、执行中的工具），再转发给监听器；历史只在 `message_end` 时追加 |
 | `@mini-pi/coding-agent` 内置工具 | 完成 | read/write/edit/bash/current_time，由工厂按 cwd 创建 |
 | `@mini-pi/coding-agent` sandbox | 基础完成 | 路径约束，以及 bash 超时、输出上限和进程树终止 |
-| `@mini-pi/coding-agent` session/MCP | 代码已迁移 | 已纳入 typecheck，尚未接入 Agent 和 CLI |
+| `@mini-pi/coding-agent` session | 基础完成 | `message_end` 写 JSONL，重开时 `buildContext` 恢复历史，`dispose()`；由 session smoke 覆盖 |
+| `@mini-pi/coding-agent` SDK | 基础完成 | `createSession()` 只用显式参数组装；Host 的 bootstrap 负责把环境变量转成参数；ai 的 `apiConfigFromEnv` 是唯一读 provider 环境变量的地方 |
+| `@mini-pi/coding-agent` MCP | 代码已迁移 | 已纳入 typecheck，尚未接入 Agent 和 CLI |
 | 包内与跨包 smoke | 完成 | ai、agent、coding-agent 各自 smoke，根级验证三包协作 |
 
 ### 下一步
 
 1. ~~实现 `Agent.prompt()`：模型调用 → tool calls → executor → tool result 回填 → 再次调用模型。~~ 已完成。
 2. turn/steering/follow-up 已完成并有测试。abort 还缺：中止后 loop 直接抛错、不发 `agent_end`，也没有测试；需要决定中止时是否写入一条带 `stopReason` 的 assistant 消息。
-3. ~~新建 CLI 宿主~~ 最小 CLI 已完成：`packages/coding-agent/src/host/`（bootstrap / renderer / cli），`PROVIDER=mock npx tsx packages/coding-agent/src/host/cli.ts` 跑通一整轮；根目录 `cli` 脚本由用户补回；Ctrl+C 中止还没验证（需要在真实终端里手动试）。
-4. 将 session 接入 Agent，验证 JSONL 恢复和 context 构建。
+3. ~~新建 CLI 宿主~~ 最小 CLI 已完成：`packages/coding-agent/src/host/`（bootstrap / renderer / cli），`PROVIDER=mock npx tsx packages/coding-agent/src/host/cli.ts [--session <path>] [--session-dir <dir>]` 跑通一整轮（session 目录也可用 `MINI_PI_SESSION_DIR`，默认 `<cwd>/.sessions/`）；根目录 `cli` 脚本由用户补回；Ctrl+C 中止还没验证（需要在真实终端里手动试）。
+4. ~~将 session 接入 Agent，验证 JSONL 恢复和 context 构建。~~ 已完成，见 `test/session-smoke.ts`。
 5. Host 端流式渲染（loop 已发出 `message_update`），以及上下文压缩。
 6. 实现 hooks、权限弹窗和 MCP/Skill 工具注册。
 7. 完整 Agent loop 跑通后，删除 CI typecheck 的 `continue-on-error`。
@@ -49,7 +51,6 @@
 
 ### 待后续完成
 
-- 增加永久的 `packages/coding-agent/test/session-smoke.ts`，并把 Session 持久化、恢复、dispose 纳入 coding-agent smoke。
 - `SessionEventHub` 仍只是未来扩展骨架，暂不接入；后续统一处理 queue、extensions、public listeners、持久化和 agent_end 清理。
 
 ### 审查遗留

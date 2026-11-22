@@ -54,7 +54,7 @@ mini-pi-agent/
 ├── packages/
 │   ├── ai/src/                   # @mini-pi/ai —— 模型接入（runtime 的 provider 部分）
 │   │   ├── types.ts              # Message / Tool / CompletionRequest / Response
-│   │   ├── factory.ts            # createApi() 按 env 选 provider
+│   │   ├── factory.ts            # provider 表；apiConfigFromEnv() 读 env，createApi(config) 不读
 │   │   ├── openai.ts             # OpenAI 兼容 translator（DeepSeek/OpenRouter）
 │   │   └── mock.ts               # 离线确定性 mock
 │   ├── agent/src/                # @mini-pi/agent —— agent_loop
@@ -65,7 +65,8 @@ mini-pi-agent/
 │   │       ├── registry.ts       # 实例级 ToolRegistry
 │   │       └── executor.ts       # 参数校验 + 统一执行入口
 │   └── coding-agent/src/         # @mini-pi/coding-agent
-│       ├── host/                 # CLI/TUI 宿主（待实现）
+│       ├── runtime/              # CodingAgentSession + sdk.ts（createSession，对外唯一组装入口）
+│       ├── host/                 # args / bootstrap（参数和 env → SDK 参数）/ renderer / cli；TUI 待实现
 │       ├── tools/builtin.ts      # bash / read_file / write_file / edit_file
 │       ├── session/              # append-only JSONL + buildContext
 │       ├── hooks/                # 简化版 hooks（待实现）
