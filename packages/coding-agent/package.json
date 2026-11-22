@@ -6,7 +6,7 @@
         ".": "./src/index.ts"
     },
     "scripts": {
-        "smoke": "tsx test/tools-smoke.ts && tsx test/sdk-smoke.ts && tsx test/host-smoke.ts",
+        "smoke": "tsx test/tools-smoke.ts && tsx test/sdk-smoke.ts && tsx test/session-smoke.ts && tsx test/host-smoke.ts",
         "smoke:mcp": "tsx test/mcp-smoke.ts"
     },
     "dependencies": {
