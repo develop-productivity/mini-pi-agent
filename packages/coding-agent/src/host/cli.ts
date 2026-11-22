@@ -1,20 +1,20 @@
 /**
- * 最小 CLI Host：readline 读输入，事件经 renderer 打到终端。
+ * CLI 入口（对应 pi 的 cli.ts + main.ts）：解析参数 → 创建 session → 按模式分发 → 清理退出。
  *
- *   PROVIDER=mock npx tsx packages/coding-agent/src/host/cli.ts [--session <path>] [--session-dir <dir>]
+ *   PROVIDER=mock npx tsx packages/coding-agent/src/host/cli.ts                         # interactive
+ *   PROVIDER=mock npx tsx packages/coding-agent/src/host/cli.ts --mode print "现在几点？" # 单次运行
+ *   PROVIDER=mock npx tsx packages/coding-agent/src/host/cli.ts --mode rpc              # stdin/stdout JSONL
  *
- * session 文件：--session > --session-dir > $MINI_PI_SESSION_DIR > <cwd>/.sessions/<时间戳>.jsonl
+ * 通用参数：--session <path>、--session-dir <dir>（或环境变量 MINI_PI_SESSION_DIR）。
  *
- * - 空闲时输入一行 → session.prompt()
- * - 运行中输入一行 → session.steer()，本轮工具执行完后插入
- * - 运行中 Ctrl+C → 先取回排队的输入、再中止；空闲时 Ctrl+C 或 /exit → 退出
+ * 各模式只负责输入输出；session 的创建和销毁都在这里，三种模式共用。
+ * 注意：rpc 模式下 stdout 只能出现协议数据，这里的提示和报错都写 stderr。
  */
-import { createInterface } from "node:readline";
-import { stdin, stdout } from "node:process";
-import { createHostSession, resolveHostOptions } from "./bootstrap.ts";
-import { createRenderer } from "./renderer.ts";
 import { parseHostArgs } from "./args.ts";
-import type { AgentUI } from "./types.ts";
+import { createHostSession, resolveHostOptions } from "./bootstrap.ts";
+import { runInteractiveMode } from "./modes/interactive.ts";
+import { runPrintMode } from "./modes/print.ts";
+import { runRpcMode } from "./modes/rpc/rpc-mode.ts";
 
 try {
     process.loadEnvFile();
@@ -22,87 +22,38 @@ try {
     // 没有 .env 就用当前环境变量
 }
 
-const consoleUI: AgentUI = {
-    write: (text) => {
-        stdout.write(text);
-    },
-    writeLine: (text) => {
-        stdout.write(`${text}\n`);
-    },
-    // CLI 不画状态栏，留给 TUI
-    setStatus: () => {},
-};
-
-const options = resolveHostOptions(parseHostArgs(process.argv.slice(2)));
-const session = await createHostSession(options);
-const subscribe = session.subscribe(createRenderer(consoleUI));
-
-consoleUI.writeLine(`mini-pi · provider=${options.api.provider} · model=${options.model}`);
-consoleUI.writeLine(`session: ${options.sessionPath}`);
-consoleUI.writeLine("输入后回车发送；运行中再输入会插话（steer）；Ctrl+C 中止，/exit 退出。");
-
-const rl = createInterface({ input: stdin, output: stdout, prompt: "> " });
-let running: Promise<void> | undefined;
-let closed = false;
-let restoreText = "";
-
-function showPrompt(): void {
-    if (closed) return;
-    rl.prompt();
-    // 中止时取回的排队输入，放回输入行让用户决定改了再发还是删掉
-    if (restoreText) {
-        rl.write(restoreText);
-        restoreText = "";
+async function main(): Promise<number> {
+    const args = parseHostArgs(process.argv.slice(2));
+    const mode = args.mode ?? "interactive";
+    if (mode === "print" && !args.messages?.length) {
+        throw new Error('print 模式需要至少一条消息，例如：--mode print "现在几点？"');
     }
-}
+    if (mode !== "print" && args.messages?.length) {
+        throw new Error(`位置参数只在 print 模式下使用：${args.messages.join(" ")}`);
+    }
 
-async function run(text: string): Promise<void> {
+    const options = resolveHostOptions(args);
+    const session = await createHostSession(options);
     try {
-        await session.prompt(text);
-    } catch (error) {
-        consoleUI.writeLine(`[error] ${error instanceof Error ? error.message : String(error)}`);
+        switch (mode) {
+            case "interactive":
+                await runInteractiveMode(session, options);
+                return 0;
+            case "print":
+                return await runPrintMode(session, { messages: args.messages ?? [], format: "text" });
+            case "rpc":
+                await runRpcMode(session, options);
+                return 0;
+        }
     } finally {
-        running = undefined;
-        showPrompt();
+        await session.dispose();
     }
 }
 
-rl.on("line", (line) => {
-    const text = line.trim();
-    if (text === "/exit") {
-        rl.close();
-        return;
-    }
-    if (!text) {
-        if (!running) showPrompt();
-        return;
-    }
-    if (running) {
-        session.steer(text);
-        consoleUI.writeLine("(已排队：本轮工具执行完后插入)");
-        return;
-    }
-    running = run(text);
-});
-
-rl.on("SIGINT", () => {
-    if (!running) {
-        rl.close();
-        return;
-    }
-    // 先取回队列再中止，避免中止生效前 loop 又把它们取走
-    const { steering, followUp } = session.clearQueue();
-    restoreText = [...steering, ...followUp].join(" ");
-    session.abort();
-    consoleUI.writeLine("\n(已中止)");
-});
-
-rl.on("close", async () => {
-    closed = true;
-    // stdin 被关掉（比如管道输入读完）时，等当前这次运行结束再退出
-    if (running) await running;
-    await session.dispose()
-    process.exit(0);
-});
-
-showPrompt();
+main().then(
+    (code) => process.exit(code),
+    (error) => {
+        process.stderr.write(`${error instanceof Error ? error.message : String(error)}\n`);
+        process.exit(1);
+    },
+);
