@@ -66,7 +66,7 @@ mini-pi-agent/
 │   │       └── executor.ts       # 参数校验 + 统一执行入口
 │   └── coding-agent/src/         # @mini-pi/coding-agent
 │       ├── runtime/              # CodingAgentSession + sdk.ts（createSession，对外唯一组装入口）
-│       ├── host/                 # args / bootstrap（参数和 env → SDK 参数）/ renderer / cli；TUI 待实现
+│       ├── host/                 # args / bootstrap / renderer / cli（入口分发）/ modes（interactive、print、rpc）；TUI 待实现
 │       ├── tools/builtin.ts      # bash / read_file / write_file / edit_file
 │       ├── session/              # append-only JSONL + buildContext
 │       ├── hooks/                # 简化版 hooks（待实现）

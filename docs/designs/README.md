@@ -9,3 +9,4 @@
 | 11-08 | [Host、AgentUI 与 coding-agent 核心类](2026-11-08-host-agent-ui-boundary.md) | 设计草稿，等待用户拍板 |
 | 11-19 | [coding-agent SDK 入口](2026-11-19-coding-agent-sdk.md) | 已实现，第 1 轮审查问题已按用户决定处理 |
 | 11-22 | [参考 pi 的流式生命周期](2026-11-22-pi-stream-lifecycle.md) | 部分实现，待决策项见审查记录 |
+| 11-22 | [Host 运行模式：interactive / print / rpc](2026-11-22-host-modes.md) | 骨架已建，TODO 待用户实现 |

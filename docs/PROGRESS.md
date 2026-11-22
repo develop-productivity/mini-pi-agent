@@ -28,9 +28,10 @@
 2. turn/steering/follow-up 已完成并有测试。abort 还缺：中止后 loop 直接抛错、不发 `agent_end`，也没有测试；需要决定中止时是否写入一条带 `stopReason` 的 assistant 消息。
 3. ~~新建 CLI 宿主~~ 最小 CLI 已完成：`packages/coding-agent/src/host/`（bootstrap / renderer / cli），`PROVIDER=mock npx tsx packages/coding-agent/src/host/cli.ts [--session <path>] [--session-dir <dir>]` 跑通一整轮（session 目录也可用 `MINI_PI_SESSION_DIR`，默认 `<cwd>/.sessions/`）；根目录 `cli` 脚本由用户补回；Ctrl+C 中止还没验证（需要在真实终端里手动试）。
 4. ~~将 session 接入 Agent，验证 JSONL 恢复和 context 构建。~~ 已完成，见 `test/session-smoke.ts`。
-5. Host 端流式渲染（loop 已发出 `message_update`），以及上下文压缩。
-6. 实现 hooks、权限弹窗和 MCP/Skill 工具注册。
-7. 完整 Agent loop 跑通后，删除 CI typecheck 的 `continue-on-error`。
+5. Host 运行模式骨架已建（[设计](designs/2026-11-22-host-modes.md)）：interactive 可用；rpc 已有读写框架、prompt、steer；print 和 rpc 其余命令待用户实现。
+6. Host 端流式渲染（loop 已发出 `message_update`），以及上下文压缩。
+7. 实现 hooks、权限弹窗和 MCP/Skill 工具注册。
+8. 完整 Agent loop 跑通后，删除 CI typecheck 的 `continue-on-error`。
 
 ### 下一阶段设计焦点
 
