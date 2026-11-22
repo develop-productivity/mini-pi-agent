@@ -56,6 +56,14 @@ export interface Api {
 }
 
 
+export interface ApiConfig {
+    provider: string;
+    baseURL?: string;                  // 可选：没给就用表里的默认地址
+    apiKey?: string;                   // 可选：mock 不需要；其他 provider 缺了由 createApi 报错
+    headers?: Record<string, string>;  // 通用字段，替代 openrouterTitle / openrouterHttpReferer
+}
+
+
 export type StreamEvent =
     | { type: "start"; message: AssistantMessage }
     | { type: "text_delta"; delta: string }
