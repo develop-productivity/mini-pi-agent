@@ -13,7 +13,7 @@ import type { HostArgs } from "./args.ts";
 /** 没设 MODEL 时的默认模型。只给能确定模型名的 provider 设默认值，其他的必须显式指定。 */
 const DEFAULT_MODELS: Record<string, string> = {
     mock: "mock",
-    deepseek: "deepseek-v4",
+    deepseek: "deepseek-flash",
 };
 
 /** 环境变量：session 文件存放目录（对应 pi 的 PI_CODING_AGENT_SESSION_DIR），被 --session-dir 覆盖。 */
