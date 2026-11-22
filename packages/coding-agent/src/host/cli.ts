@@ -12,7 +12,7 @@ import { stdin, stdout } from "node:process";
 import { createHostSession, resolveHostOptions } from "./bootstrap.ts";
 import { createRenderer } from "./renderer.ts";
 import type { AgentUI } from "./types.ts";
-
+const SESSION_PATH="/tmp/foo.jsonl"
 try {
     process.loadEnvFile();
 } catch {
@@ -30,9 +30,9 @@ const consoleUI: AgentUI = {
     setStatus: () => {},
 };
 
-const options = resolveHostOptions();
+const options = resolveHostOptions(SESSION_PATH);
 const session = await createHostSession(options);
-session.subscribe(createRenderer(consoleUI));
+const subscribe = session.subscribe(createRenderer(consoleUI));
 
 consoleUI.writeLine(`mini-pi · provider=${options.provider} · model=${options.model}`);
 consoleUI.writeLine("输入后回车发送；运行中再输入会插话（steer）；Ctrl+C 中止，/exit 退出。");
@@ -97,6 +97,7 @@ rl.on("close", async () => {
     closed = true;
     // stdin 被关掉（比如管道输入读完）时，等当前这次运行结束再退出
     if (running) await running;
+    await session.dispose()
     process.exit(0);
 });
 

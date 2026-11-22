@@ -14,9 +14,10 @@
  *  └── session 生命周期
  */
 
-import { Agent, type AgentEventListener, type AgentOptions } from "@mini-pi/agent";
-import { SessionStorage, type SessionStorageOptions } from "../session/storage.ts";
-
+import { Agent, type AgentEvent, type AgentEventListener, type AgentOptions, type AgentLifecycleHandler } from "@mini-pi/agent";
+import { SessionStorage } from "../session/storage.ts";
+import { buildContext } from "../session/build.ts"
+import { createPersistenceHandler } from "./session-event.ts"
 export interface CodingAgentSessionOptions {
     sessionStorage?: SessionStorage;
     sessionPath: string;
@@ -27,12 +28,25 @@ export interface CodingAgentSessionOptions {
 export class CodingAgentSession {
     private readonly agent: Agent;
     private readonly sessionStorage: SessionStorage;
+    private activePrompt?: Promise<void>;
+    private pendingWrites: Promise<void> = Promise.resolve();
+    private disposed = false;
+    private readonly listenerUnsubs = new Set<() => void>();
+
     constructor(agent: Agent, sessionStorage : SessionStorage) {
         this.agent = agent;
 		this.sessionStorage = sessionStorage;
     }
     async prompt(text: string): Promise<void> {
-        await this.agent.prompt(text);
+        if (this.disposed) {
+            throw new Error("This session has been disposed, do not use prompt.")
+        }
+        this.activePrompt = this.agent.prompt(text);
+        try {
+            await this.activePrompt
+        } finally {
+            this.activePrompt = undefined
+        }
     }
     steer(text: string): void {
         this.agent.steer(text);
@@ -59,13 +73,37 @@ export class CodingAgentSession {
      * 再决定是合并成一个联合类型还是分开订阅。返回取消订阅的函数。
      */
     subscribe(listener: AgentEventListener): () => void {
-        return this.agent.subscribe(listener);
+        const unsubscribe = this.agent.subscribe(listener);
+        this.listenerUnsubs.add(unsubscribe);
+        return () => {
+            unsubscribe();
+            this.listenerUnsubs.delete(unsubscribe);
+        };
+    }
+    // 决定 unSubscribe 是在内部还是在外部
+    unsubscribeAll():void {
+        for (const unsubscribe of this.listenerUnsubs) {
+            unsubscribe()
+            this.listenerUnsubs.delete(unsubscribe);
+        }
     }
     async setModel(model:string): Promise<void> {
-        this.agent.state.model=model;
-
+        this.agent.setModel(model);
     }
+    async dispose(): Promise<void> {
+        if (this.disposed) return;
+        this.disposed = true;
 
+        this.agent.abort();
+        // 等待结束，不让 prompt 错误阻止资源清理
+        await this.activePrompt?.catch((error) => {
+            console.error("Prompt failed while disposing session:", error);
+        });
+        // await this.pendingWrites; // 等待所有 appendFile 完成
+        this.unsubscribeAll();
+        this.listenerUnsubs.clear();
+        // 关闭 MCP client、清理工具资源等
+    }
 }
 
 
@@ -77,14 +115,18 @@ export async function createCodingAgentSession(agentOptions: AgentOptions, agent
         ?? await SessionStorage.openOrCreate(agentSessionOptions.sessionPath, {
             cwd: agentSessionOptions.cwd,
         });
-
+    const historyMessages = buildContext(sessionStorage.getEntries())
     const agent = new Agent({
         tools: agentOptions.tools,
         toolRegistry: agentOptions.toolRegistry,
         streamFn: agentOptions.streamFn,
         onListenerError: agentOptions.onListenerError,
-        initialState: agentOptions.initialState, // model 由 Host 决定
+        initialState: {
+            ...agentOptions.initialState, // model 由 Host 决定
+            messages: historyMessages
+        },
+        onLifecycleEvent: createPersistenceHandler(sessionStorage)
     })
-    
+
     return new CodingAgentSession(agent, sessionStorage)
 }

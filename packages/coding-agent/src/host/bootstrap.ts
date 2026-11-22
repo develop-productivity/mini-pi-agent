@@ -9,14 +9,16 @@ import { createApi } from "@mini-pi/ai";
 import { createBuiltinTools } from "../tools/builtin.ts";
 import { createCodingAgentSession, type CodingAgentSession } from "../runtime/coding-agent-session.ts";
 import type { HostOptions } from "./types.ts";
+import { dirname } from "node:path";
 
 /** 没设 MODEL 时的默认模型。只给能确定模型名的 provider 设默认值，其他的必须显式指定。 */
 const DEFAULT_MODELS: Record<string, string> = {
     mock: "mock",
-    deepseek: "deepseek-chat",
+    deepseek: "deepseek-v4",
 };
 
 export function resolveHostOptions(
+    sessionName: string,
     env: NodeJS.ProcessEnv = process.env,
     cwd: string = process.cwd(),
 ): HostOptions {
@@ -26,14 +28,14 @@ export function resolveHostOptions(
     if (!model) {
         throw new Error(`PROVIDER=${provider} 没有默认模型，请设置 MODEL 环境变量`);
     }
-
     const sessionDir = join(cwd, ".sessions");
     const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-    return { cwd, provider, model, sessionPath: join(sessionDir, `${stamp}.jsonl`) };
+    const sessionFile = sessionName ?? join(sessionDir, `${stamp}.jsonl`)
+    return { cwd, provider, model, sessionPath: sessionFile};
 }
 
 export async function createHostSession(options: HostOptions): Promise<CodingAgentSession> {
-    mkdirSync(join(options.sessionPath, ".."), { recursive: true });
+    mkdirSync(dirname(options.sessionPath), { recursive: true });
 
     const api = createApi();
     return createCodingAgentSession(

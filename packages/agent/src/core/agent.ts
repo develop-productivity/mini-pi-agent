@@ -43,12 +43,18 @@ class PendingMessageQueue {
     }
 }
 
+export type AgentLifecycleHandler = (
+    event: AgentEvent,
+    signal: AbortSignal,
+) => Promise<void> | void;
+
 export interface AgentOptions {
     streamFn: StreamFn;  // need implement streamfunction
     tools?: readonly AgentTool[];
     toolRegistry?: ToolRegistry;
     onListenerError?: AgentListenerErrorHandler;
     initialState: AgentInitialState
+    onLifecycleEvent?: AgentLifecycleHandler;
 }
 
 
@@ -80,7 +86,8 @@ export class Agent {
     private readonly toolRegistry: ToolRegistry;
     private readonly streamFn: StreamFn
     private activeRun?: ActiveRun;
-    private _state: MutableAgentState
+    private _state: MutableAgentState;
+    private lifecycleSink?: AgentLifecycleHandler
 
     constructor(
         options:AgentOptions
@@ -92,6 +99,7 @@ export class Agent {
         this.steeringQueue = new PendingMessageQueue("one-at-a-time");
         this.followUpQueue = new PendingMessageQueue("all");
         this._state = createMutableAgentState(options.initialState);
+        this.lifecycleSink = options.onLifecycleEvent
     }
 
     steer(text: string): void {
@@ -134,7 +142,9 @@ export class Agent {
     abort(): void {
         this.activeRun?.abortController.abort()
     }
-
+    setModel(model: string) {
+        this._state.model = model
+    }
     get state(): AgentState {
         return {
             model:this._state.model,
@@ -234,7 +244,7 @@ export class Agent {
                 this.clearRunState();
                 break;
         }
-
+        await this.lifecycleSink?.(event, signal);
         await this.eventBus.emit(event, signal);
     }
 }

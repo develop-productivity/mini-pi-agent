@@ -45,8 +45,12 @@
 
 ### 已知问题
 
-- `CodingAgentSession.setModel()` 不生效：`Agent.state` 每次返回新对象，给它的 `model` 赋值改不到 `_state`。需要让 `state` 返回 `_state` 本身，或在 Agent 上提供修改入口。
 - 模型流式输出过程中 abort 仍会抛错、事件不完整（审查第 2 条剩余部分）。
+
+### 待后续完成
+
+- 增加永久的 `packages/coding-agent/test/session-smoke.ts`，并把 Session 持久化、恢复、dispose 纳入 coding-agent smoke。
+- `SessionEventHub` 仍只是未来扩展骨架，暂不接入；后续统一处理 queue、extensions、public listeners、持久化和 agent_end 清理。
 
 ### 审查遗留
 

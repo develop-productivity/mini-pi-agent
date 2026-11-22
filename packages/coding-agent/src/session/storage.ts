@@ -1,6 +1,7 @@
 import type { SessionEntry, SessionHeader, SessionMetadata} from "./types.ts"
 import type { Message } from "@mini-pi/ai"
-import { readFile, writeFile, appendFile, access } from "node:fs/promises";
+import { dirname } from "node:path";
+import { mkdir,readFile, writeFile, appendFile, access } from "node:fs/promises";
 
 
 // 补齐缺失的类型定义
@@ -24,6 +25,8 @@ export class SessionStorage {
 
     // 工厂方法：新建 or 打开
     static async create(filePath: string, opts?: SessionStorageOptions): Promise<SessionStorage> {
+        // 确保存在
+        await mkdir(dirname(filePath), { recursive: true })
         const header : SessionHeader = {
             type: "session",
             version: 1,
@@ -50,10 +53,20 @@ export class SessionStorage {
     }
     static async openOrCreate(filePath: string, opts?: SessionStorageOptions): Promise<SessionStorage> {
         try {
-            await access(filePath);
-            return this.open(filePath)
-        }catch {
-            return this.create(filePath, opts); // 文件不存在或无访问权限
+            return await this.open(filePath);
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+                throw error;
+            }
+        }
+        await mkdir(dirname(filePath), { recursive: true });
+        try {
+            return await this.create(filePath, opts);
+        } catch (error) {
+            if ((error as NodeJS.ErrnoException).code === "EEXIST") {
+                return this.open(filePath);
+            }
+            throw error;
         }
     }
     // 元数据
