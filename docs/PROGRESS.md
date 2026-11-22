@@ -37,6 +37,10 @@
 3. `coding-agent` 核心类的职责：组合模型、工具、session、hooks、sandbox 和事件。
 4. 借鉴 Pi 的抽象：低层 Agent、产品级 AgentSession、StreamFn、AgentTool、ResourceLoader。
 
+### 后续扩展
+
+- `SessionEventHub` 暂不接入：未来统一处理 queue 状态、extension event、public listeners、持久化、agent_end 清理、compaction 和 retry。
+
 设计草稿见 [Host、AgentUI 与 coding-agent 核心类](designs/2026-11-08-host-agent-ui-boundary.md)。
 
 ### 已知问题

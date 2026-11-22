@@ -16,6 +16,7 @@
 | 11-08 | [CodingAgentSession 负责构造 Agent](2026-11-08-session-owns-agent-construction.md) | 生效 |
 | 11-10 | [运行时组合关系](2026-11-10-runtime-composition-architecture.md) | 生效 |
 | 11-22 | [流式生命周期审查问题延后到下一次 session](2026-11-22-defer-stream-lifecycle-decisions.md) | 生效 |
+| 11-22 | [SessionEventHub 暂不接入](2026-11-22-defer-session-event-hub.md) | 生效；后续扩展 |
 | 11-18 | [Agent loop 直接基于流式接口](2026-11-18-streaming-in-loop.md) | 生效 |
 | 11-18 | [模型由调用方指定，记录在 AgentState](2026-11-18-model-in-agent-state.md) | 生效 |
 | 11-18 | [assistant 消息带上 stopReason 和 errorMessage](2026-11-18-assistant-stop-reason.md) | 生效 |
