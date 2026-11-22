@@ -1,4 +1,3 @@
-import type { AgentEvent } from "@mini-pi/agent";
 import { type SessionEntry } from "../session/types.ts"
 
 
