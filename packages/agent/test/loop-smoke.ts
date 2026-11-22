@@ -132,6 +132,76 @@ const callEcho: MockStep = { text: "Calling echo.", toolCalls: [{ name: "echo", 
 }
 
 {
+    // streamFn 抛错：仍然要补齐 message_start/message_end、turn_end、agent_end。
+    const agent = new Agent({
+        streamFn: async function* () {
+            yield { type: "start", message: { role: "assistant", content: "" } };
+            yield { type: "text_delta", delta: "partial" };
+            throw new Error("stream failed");
+        },
+        initialState: { model: "mock" },
+    });
+    const events: AgentEvent[] = [];
+    agent.subscribe((event) => {
+        events.push(event);
+    });
+    await agent.prompt("hello");
+
+    const last = agent.state.messages.at(-1);
+    assert.equal(last?.role, "assistant");
+    assert.equal(last?.stopReason, "error");
+    assert.equal(last?.errorMessage, "stream failed");
+    assert.deepEqual(eventTypes(events).slice(-2), ["turn_end", "agent_end"]);
+}
+
+{
+    // stream 没有 done/error：按 error 收尾。
+    const agent = new Agent({
+        streamFn: async function* () {
+            yield { type: "start", message: { role: "assistant", content: "" } };
+            yield { type: "text_delta", delta: "partial" };
+        },
+        initialState: { model: "mock" },
+    });
+    const events: AgentEvent[] = [];
+    agent.subscribe((event) => {
+        events.push(event);
+    });
+    await agent.prompt("hello");
+
+    const last = agent.state.messages.at(-1);
+    assert.equal(last?.role, "assistant");
+    assert.equal(last?.stopReason, "error");
+    assert.match(last?.errorMessage ?? "", /without a done or error event/);
+    assert.equal(eventTypes(events).at(-1), "agent_end");
+}
+
+{
+    // 模型流开始后 abort：仍然要有 message_end、turn_end、agent_end。
+    const agent = new Agent({
+        streamFn: async function* (request) {
+            yield { type: "start", message: { role: "assistant", content: "" } };
+            if (request.signal?.aborted) throw new Error("aborted");
+            yield { type: "text_delta", delta: "should not stream" };
+        },
+        initialState: { model: "mock" },
+    });
+    const events: AgentEvent[] = [];
+    agent.subscribe((event) => {
+        events.push(event);
+        if (event.type === "message_start" && event.message.role === "assistant") {
+            agent.abort();
+        }
+    });
+    await agent.prompt("hello");
+
+    const last = agent.state.messages.at(-1);
+    assert.equal(last?.role, "assistant");
+    assert.equal(last?.stopReason, "aborted");
+    assert.deepEqual(eventTypes(events).slice(-2), ["turn_end", "agent_end"]);
+}
+
+{
     // steering：工具执行期间插话，注入在 tool result 之后、下一次模型调用之前。
     let steered = false;
     const agent = createAgent([callEcho, { text: "Saw the steer." }], (a) => {

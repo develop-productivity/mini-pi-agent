@@ -210,6 +210,11 @@ export function createMockApi(options: MockOptions = {}): Api {
       const response = buildResponse(req);
       const { message } = response;
 
+      yield {
+        type: "start",
+        message: { role: "assistant", content: "" },
+      };
+
       // Text first, in small chunks: this is what exercises the delta path.
       for (const chunk of chunkText(message.content, chunkSize)) {
         if (req.signal?.aborted) throw new Error("Request aborted");

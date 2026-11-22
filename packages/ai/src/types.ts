@@ -57,6 +57,7 @@ export interface Api {
 
 
 export type StreamEvent =
+    | { type: "start"; message: AssistantMessage }
     | { type: "text_delta"; delta: string }
     | { type: "tool_use_start"; index: number; id: string; name: string }
     | { type: "tool_use_delta"; index: number; deltaJson: string }
@@ -64,4 +65,8 @@ export type StreamEvent =
     | { type: "done";
         message: CompletionResponse["message"];
         stopReason: CompletionResponse["stopReason"];
+        usage?: CompletionResponse["usage"] }
+    | { type: "error";
+        message: AssistantMessage;
+        stopReason: "error" | "aborted";
         usage?: CompletionResponse["usage"] };

@@ -207,6 +207,10 @@ export function createOpenAiApi(config: OpenAiConfig): Api {
             })
             if (!res.ok) throw new Error(`${config.name} ${res.status}: ${await res.text()}`);
             if (!res.body) throw new Error(`${config.name}: no body`);
+            yield {
+                type: "start",
+                message: { role: "assistant", content: "" },
+            };
             // 状态
             let accumulatedText = "";
             const toolCallsByIndex = new Map<number, {

@@ -39,4 +39,12 @@ const second = await api.complete({ model: "mock", messages, tools });
 assert.equal(second.stopReason, "end_turn");
 assert.match(second.message.content, /tool result arrived/i);
 
+const streamed: string[] = [];
+for await (const event of api.stream({ model: "mock", messages: [{ role: "user", content: "hello" }], tools })) {
+    streamed.push(event.type);
+}
+assert.equal(streamed[0], "start");
+assert.equal(streamed.at(-1), "done");
+assert.ok(streamed.includes("text_delta"));
+
 console.log("ai smoke ok");

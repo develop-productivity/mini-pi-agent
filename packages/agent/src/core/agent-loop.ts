@@ -10,6 +10,7 @@ import type {
     CompletionResponse,
     CompletionRequest,
     ToolSpec,
+    ToolCall,
 } from "@mini-pi/ai";
 
 import type { StreamFn, AgentLoopConfig, AgentLoopContext } from "./types.ts";
@@ -20,33 +21,132 @@ export type AgentEventSink = (event: AgentEvent) => Promise<void> | void;
 
 type AssistantMessage = CompletionResponse["message"];
 
+interface PartialToolCall {
+    id: string;
+    name: string;
+    partialJson: string;
+    arguments?: Record<string, unknown>;
+}
+
 /** 把 provider 的流式事件翻译成 message_start / update / end，并返回最终消息。 */
 export async function streamAssistantResponse(
     streamFn: StreamFn,
     request: CompletionRequest,
     emit: AgentEventSink,
 ): Promise<CompletionResponse> {
-    // StreamEvent 没有 start 事件，所以在读流之前发 message_start：
-    // 模型一个字不输出、直接给 tool call 时，UI 也能收到完整的 start/end。
     let partial: AssistantMessage = { role: "assistant", content: "" };
-    await emit({ type: "message_start", message: partial });
-
+    let started = false;
     let done: CompletionResponse | undefined;
-    for await (const ev of streamFn(request)) {
-        if (ev.type === "text_delta") {
-            // 每次新建对象：监听器可能持有上一次的引用，原地修改会改掉它们的快照。
-            partial = { ...partial, content: partial.content + ev.delta };
-            await emit({ type: "message_update", message: partial, delta: ev.delta });
-        } else if (ev.type === "done") {
-            // 完整消息（含 toolCalls）以 provider 收尾时给的为准，不用自己拼的 partial。
-            done = { message: ev.message, usage: ev.usage, stopReason: ev.stopReason };
+    const partialToolCalls = new Map<number, PartialToolCall>();
+
+    const snapshotToolCalls = (): ToolCall[] =>
+        Array.from(partialToolCalls.entries())
+            .sort(([a], [b]) => a - b)
+            .map(([, toolCall]) => ({
+                id: toolCall.id,
+                name: toolCall.name,
+                arguments: toolCall.arguments ?? {},
+            }));
+
+    const updatePartial = (): AssistantMessage => {
+        const toolCalls = snapshotToolCalls();
+        partial = { ...partial, ...(toolCalls.length > 0 ? { toolCalls } : {}) };
+        return partial;
+    };
+
+    const ensureStarted = async (message: AssistantMessage = partial): Promise<void> => {
+        if (started) return;
+        started = true;
+        await emit({ type: "message_start", message: { ...message } });
+    };
+
+    const fail = async (error: unknown): Promise<CompletionResponse> => {
+        const aborted = request.signal?.aborted === true;
+        const finalMessage: AssistantMessage = {
+            ...updatePartial(),
+            stopReason: aborted ? "aborted" : "error",
+            errorMessage: aborted
+                ? "Request aborted"
+                : error instanceof Error
+                  ? error.message
+                  : String(error),
+        };
+        await ensureStarted(finalMessage);
+        await emit({ type: "message_end", message: finalMessage });
+        return { message: finalMessage, stopReason: finalMessage.stopReason };
+    };
+
+    try {
+        for await (const event of streamFn(request)) {
+            switch (event.type) {
+                case "start":
+                    partial = event.message;
+                    await ensureStarted(partial);
+                    break;
+
+                case "text_delta":
+                    partial = { ...partial, content: partial.content + event.delta };
+                    await ensureStarted();
+                    await emit({ type: "message_update", message: partial, delta: event.delta });
+                    break;
+
+                case "tool_use_start":
+                    partialToolCalls.set(event.index, {
+                        id: event.id,
+                        name: event.name,
+                        partialJson: "",
+                    });
+                    await ensureStarted();
+                    await emit({ type: "message_update", message: updatePartial() });
+                    break;
+
+                case "tool_use_delta": {
+                    const toolCall = partialToolCalls.get(event.index);
+                    if (toolCall) toolCall.partialJson += event.deltaJson;
+                    await ensureStarted();
+                    await emit({ type: "message_update", message: updatePartial() });
+                    break;
+                }
+
+                case "tool_use_end":
+                    partialToolCalls.set(event.index, {
+                        id: event.id,
+                        name: event.name,
+                        partialJson: JSON.stringify(event.arguments),
+                        arguments: event.arguments,
+                    });
+                    await ensureStarted();
+                    await emit({ type: "message_update", message: updatePartial() });
+                    break;
+
+                case "done": {
+                    const finalMessage: AssistantMessage = {
+                        ...event.message,
+                        stopReason: event.message.stopReason ?? event.stopReason,
+                    };
+                    done = { message: finalMessage, stopReason: finalMessage.stopReason, usage: event.usage };
+                    break;
+                }
+
+                case "error": {
+                    const finalMessage: AssistantMessage = {
+                        ...event.message,
+                        stopReason: event.message.stopReason ?? event.stopReason,
+                    };
+                    done = { message: finalMessage, stopReason: finalMessage.stopReason, usage: event.usage };
+                    break;
+                }
+            }
         }
-        // tool_use_* 先忽略：done 会带上完整的 toolCalls。
+    } catch (error) {
+        return fail(error);
     }
 
     if (!done) {
-        throw new Error("model stream ended without a done event");
+        return fail(new Error("model stream ended without a done or error event"));
     }
+
+    await ensureStarted(done.message);
     await emit({ type: "message_end", message: done.message });
     return done;
 }
@@ -121,11 +221,17 @@ async function agentLoop(
             );
             runMessages.push(response.message);
 
+            if (response.message.stopReason === "error" || response.message.stopReason === "aborted") {
+                await emit({ type: "turn_end", turn: turnCount, message: response.message, toolResults: [] });
+                return;
+            }
+
             const toolCalls = response.message.toolCalls ?? [];
             hasMoreToolCalls = toolCalls.length > 0;
 
             const toolResults: Message[] = [];
             for (const tc of toolCalls) {
+                if (signal.aborted) break;
                 await emit({
                     type: "tool_execution_start",
                     toolCallId: tc.id,
@@ -183,6 +289,9 @@ export async function runAgentLoop(
 ): Promise<void> {
     const runId = crypto.randomUUID();
     await emit({ type: "agent_start", runId });
-    await agentLoop(prompts, agentLoopContext, agentLoopConfig, emit, signal);
-    await emit({ type: "agent_end", runId, messages: agentLoopContext.messages });
+    try {
+        await agentLoop(prompts, agentLoopContext, agentLoopConfig, emit, signal);
+    } finally {
+        await emit({ type: "agent_end", runId, messages: agentLoopContext.messages });
+    }
 }
