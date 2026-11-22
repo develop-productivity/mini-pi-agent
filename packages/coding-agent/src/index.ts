@@ -8,3 +8,5 @@ export * from "./mcp/types.ts";
 export * from "./mcp/client.ts";
 export * from "./mcp/loader.ts";
 export * from "./mcp/adapter.ts";
+export * from "./runtime/sdk.ts";
+export type { CodingAgentSession } from "./runtime/coding-agent-session.ts";

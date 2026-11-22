@@ -1,7 +1,9 @@
 /**
  * 最小 CLI Host：readline 读输入，事件经 renderer 打到终端。
  *
- *   PROVIDER=mock npx tsx packages/coding-agent/src/host/cli.ts
+ *   PROVIDER=mock npx tsx packages/coding-agent/src/host/cli.ts [--session <path>] [--session-dir <dir>]
+ *
+ * session 文件：--session > --session-dir > $MINI_PI_SESSION_DIR > <cwd>/.sessions/<时间戳>.jsonl
  *
  * - 空闲时输入一行 → session.prompt()
  * - 运行中输入一行 → session.steer()，本轮工具执行完后插入
@@ -11,8 +13,9 @@ import { createInterface } from "node:readline";
 import { stdin, stdout } from "node:process";
 import { createHostSession, resolveHostOptions } from "./bootstrap.ts";
 import { createRenderer } from "./renderer.ts";
+import { parseHostArgs } from "./args.ts";
 import type { AgentUI } from "./types.ts";
-const SESSION_PATH="/tmp/foo.jsonl"
+
 try {
     process.loadEnvFile();
 } catch {
@@ -30,11 +33,12 @@ const consoleUI: AgentUI = {
     setStatus: () => {},
 };
 
-const options = resolveHostOptions(SESSION_PATH);
+const options = resolveHostOptions(parseHostArgs(process.argv.slice(2)));
 const session = await createHostSession(options);
 const subscribe = session.subscribe(createRenderer(consoleUI));
 
-consoleUI.writeLine(`mini-pi · provider=${options.provider} · model=${options.model}`);
+consoleUI.writeLine(`mini-pi · provider=${options.api.provider} · model=${options.model}`);
+consoleUI.writeLine(`session: ${options.sessionPath}`);
 consoleUI.writeLine("输入后回车发送；运行中再输入会插话（steer）；Ctrl+C 中止，/exit 退出。");
 
 const rl = createInterface({ input: stdin, output: stdout, prompt: "> " });

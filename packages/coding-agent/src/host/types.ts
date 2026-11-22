@@ -16,6 +16,8 @@
     renderer：有明确业务职责，负责把事件翻译成 UI 操作。
     bootstrap：有副作用和生命周期，负责组装依赖并创建 Session。
  */
+import type { ApiConfig } from "@mini-pi/ai";
+
 export interface AgentUI {
     write(text: string): void;
     writeLine(text: string): void;
@@ -28,8 +30,8 @@ export interface AgentUI {
 export interface HostOptions {
     cwd: string;
     sessionPath: string;
-    /** 只用于显示；真正选 provider 的是 @mini-pi/ai 的 createApi()（读 PROVIDER）。 */
-    provider: string;
+    /** provider 配置只解析一次：显示用的 provider 和实际连接用的是同一份（api.provider）。 */
+    api: ApiConfig;
     /** 模型由 Host 决定，经 initialState 交给 Agent。 */
     model: string;
     // 其他 Host 配置
