@@ -22,3 +22,4 @@
 | 11-18 | [assistant 消息带上 stopReason 和 errorMessage](2026-11-18-assistant-stop-reason.md) | 生效 |
 | 11-18 | [abort 不自动清空队列，由上层取回排队消息](2026-11-18-abort-queue-handling.md) | 生效 |
 | 11-19 | [参考 pi 提供 coding-agent SDK 入口](2026-11-19-coding-agent-sdk.md) | 生效 |
+| 11-24 | [失败的 assistant 消息：去掉 toolCalls，保留文字](2026-11-24-failed-assistant-messages.md) | 生效 |

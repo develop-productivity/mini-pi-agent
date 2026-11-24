@@ -25,7 +25,7 @@
 ### 下一步
 
 1. ~~实现 `Agent.prompt()`：模型调用 → tool calls → executor → tool result 回填 → 再次调用模型。~~ 已完成。
-2. turn/steering/follow-up 已完成并有测试。abort 还缺：中止后 loop 直接抛错、不发 `agent_end`，也没有测试；需要决定中止时是否写入一条带 `stopReason` 的 assistant 消息。
+2. ~~turn/steering/follow-up/abort~~ 已完成：中止和出错都编码成带 `stopReason` 的 assistant 消息，必发 `agent_end`，不会留下没有结果的 tool call（见 loop-smoke 和[决定](decisions/2026-11-24-failed-assistant-messages.md)）。
 3. ~~新建 CLI 宿主~~ 最小 CLI 已完成：`packages/coding-agent/src/host/`（bootstrap / renderer / cli），`PROVIDER=mock npx tsx packages/coding-agent/src/host/cli.ts [--session <path>] [--session-dir <dir>]` 跑通一整轮（session 目录也可用 `MINI_PI_SESSION_DIR`，默认 `<cwd>/.sessions/`）；根目录 `cli` 脚本由用户补回；Ctrl+C 中止还没验证（需要在真实终端里手动试）。
 4. ~~将 session 接入 Agent，验证 JSONL 恢复和 context 构建。~~ 已完成，见 `test/session-smoke.ts`。
 5. Host 运行模式骨架已建（[设计](designs/2026-11-22-host-modes.md)）：interactive 可用；rpc 已有读写框架、prompt、steer；print 和 rpc 其余命令待用户实现。
@@ -48,7 +48,7 @@
 
 ### 已知问题
 
-- 模型流式输出过程中 abort 仍会抛错、事件不完整（审查第 2 条剩余部分）。
+- 流式生命周期审查第 3–6 条待用户决定（重复 start、done 缺 stopReason、OpenAI `[DONE]` 无 finish_reason、测试缺口）。
 
 ### 待后续完成
 
